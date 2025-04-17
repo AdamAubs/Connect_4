@@ -17,22 +17,31 @@ public class Client extends Thread{
 	ObjectOutputStream out;
 	ObjectInputStream in;
 
+	private Consumer<Message> callback;
+
+	Client(Consumer<Message> call) {
+		callback = call;
+	}
+
 	// Runs the thread
 	public void run() {
 		// Try connecting the client to the server located
 		// at a server on same machine as itself
 		try {
-			socketClient= new Socket("127.0.0.1",5556);
+			socketClient = new Socket("127.0.0.1",5556);
 	    	out = new ObjectOutputStream(socketClient.getOutputStream());
 	    	in = new ObjectInputStream(socketClient.getInputStream());
 	   	 	socketClient.setTcpNoDelay(true);
-		} catch(Exception e) {}
+		} catch(Exception e) {
+			System.out.println("Unable to connect client to server");
+		}
 
-		// Read in the message being from the client
+		// Read in the message
 		while(true) {
 			try {
 				Message message = (Message) in.readObject();
 				System.out.println(message);
+				callback.accept(message);
 			}
 			catch(Exception e) {}
 		}
@@ -47,6 +56,4 @@ public class Client extends Thread{
 			e.printStackTrace();
 		}
 	}
-
-
 }
