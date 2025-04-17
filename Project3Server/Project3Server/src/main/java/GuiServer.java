@@ -1,8 +1,12 @@
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import javafx.application.Application;
 
+import javafx.application.Platform;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
@@ -19,55 +23,109 @@ import javafx.scene.layout.*;
 import javafx.stage.WindowEvent;
 
 public class GuiServer extends Application{
+	// Font to use everywhere
+	Font customFont = Font.font("Arial", 14);
+
+	// Connection to clients
+	Server serverConnection;
+	String username;
+	boolean loggedIn = false;
+
+	HashMap<String, Scene> sceneMap;
+	Stage primaryStage;
+
+	// Connected Clients List
+	ListView<String> connectedClientsList;
+	ListView<String> loggedInUsersList;
+	ListView<String> messageList;
 
 	public static void main(String[] args) {
-		Server serv = new Server();
 		launch(args);
 	}
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
-		// Font to use everywhere
-		Font arialFont = Font.font("Arial", 14);
+		this.primaryStage = primaryStage;
 
-		// UI Components
-		Label statusLabel = new Label("Server Status: OFF");
-		statusLabel.setFont(arialFont);
+		// Set up the server connection with a client to handle
+		// incoming messages
+		serverConnection = new Server(message -> handleIncomingMessage(message));
 
-		TextArea logArea = new TextArea();
-		logArea.setFont(arialFont);
-		logArea.setEditable(false);
-		logArea.setPrefRowCount(10);
+		// Initialize text list
+		messageList = new ListView<>();
+		messageList.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		loggedInUsersList = new ListView<>();
+		loggedInUsersList.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		connectedClientsList = new ListView<>();
+		connectedClientsList.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
-		Button startButton = new Button("Start Server");
-		startButton.setFont(arialFont);
+		sceneMap = new HashMap<>();
+		sceneMap.put("server", createServerGui());
 
-		Button stopButton = new Button("Stop Server");
-		stopButton.setFont(arialFont);
-
-		Label logLabel = new Label("Logs:");
-		logLabel.setFont(arialFont);
-
-		// Layout
-		VBox root = new VBox(10);
-		root.setStyle("-fx-padding: 10;");
-		root.getChildren().addAll(statusLabel, startButton, stopButton, logLabel, logArea);
-
-		// Button Logic (placeholder)
-		startButton.setOnAction(e -> {
-			statusLabel.setText("Server Status: RUNNING");
-			logArea.appendText("Server started...\n");
+		primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+			@Override
+			public void handle(WindowEvent windowEvent) {
+				Platform.exit();
+				System.exit(0);
+			}
 		});
 
-		stopButton.setOnAction(e -> {
-			statusLabel.setText("Server Status: STOPPED");
-			logArea.appendText("Server stopped...\n");
-		});
-
-		// Stage setup
-		primaryStage.setTitle("Simple Server UI");
-		primaryStage.setScene(new Scene(root, 400, 300));
+		primaryStage.setTitle("This is the Server");
+		// Show the server scene first
+		primaryStage.setScene(sceneMap.get("server"));
 		primaryStage.show();
+	}
+
+	// Takes in messages being passed to the server
+	private void handleIncomingMessage(Message message) {
+		Platform.runLater(() -> {
+			try {
+				if (message == null) {
+					System.out.println("Received null message");
+					return;
+				}
+				// Determine the type of the message being sent to the server
+				switch (message.type) {
+					case NEWCONNECTION:
+						// Add newly connected clients to the connectedClientsList to be displayed
+						connectedClientsList.getItems().add("Client #" + message.clientId + " has connected to the server");
+					case TEXT:
+						messageList.getItems().add("From " + message.sender + ": " + message.message);
+						break;
+					case LOGIN:
+						loggedInUsersList.getItems().add("Client with username: " + message.sender + " has logged in.");
+						break;
+				}
+			} catch (Exception e) {
+				System.err.println("Error handling message: " + e.getMessage());
+				e.printStackTrace();
+			}
+		});
+	}
+
+	// Layout to display incoming messages to
+	// the server
+	public Scene createServerGui() {
+		// Add labels for each ListView
+		Label clientsLabel = new Label("Connected Clients");
+		clientsLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		Label usersLabel = new Label("Logged In Users");
+		usersLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		Label messagesLabel = new Label("Messages");
+		messagesLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		VBox clientsBox = new VBox(5, clientsLabel, connectedClientsList);
+		VBox usersBox = new VBox(5, usersLabel, loggedInUsersList);
+		VBox messagesBox = new VBox(5, messagesLabel, messageList);
+
+		HBox listsBox = new HBox(10, clientsBox, usersBox, messagesBox);
+
+		BorderPane mainPane = new BorderPane();
+		mainPane.setLeft(listsBox);
+		mainPane.setCenter(messagesBox);
+		mainPane.setPadding(new Insets(10));
+
+		return new Scene(mainPane, 800, 800);
 	}
 
 }
