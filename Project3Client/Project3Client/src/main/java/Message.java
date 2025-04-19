@@ -5,30 +5,29 @@ public class Message implements Serializable {
 
     MessageType type; // Can be text, newUser, disconnected
     String sender; // Username of sender
-    int recipient; // Id of recipient
     String message; // General message content
-    Object data; // Additional data that might be required
-
-    public Message(MessageType type) {
-        this.type = type;
-    }
-
-    public Message(String input){
-        message = input;
-        type = MessageType.TEXT;
-    }
-
-    public Message(String input, int rec) {
-        message = input;
-        recipient = rec;
-        type = MessageType.TEXT;
-    }
+    String player1username;
+    String player2username;
+    int[][] gameboard;
+    int currentPlayer; // 1 or 2
+    int lastMoveColumn; // For GAME_ACTION messages when updating gameboard on server
 
     public Message(MessageType type, String sender, String message) {
         this.type = type;
         this.sender = sender;
         this.message = message;
     }
+
+    public Message(MessageType type, String sender, String player1, String player2, String message) {
+        this.type = type;
+        this.sender = sender;
+        this.player1username = player1;
+        this.player2username = player2;
+        this.message = message;
+    }
+
+    // TODO: might need to add more constructors to send GAME_ACTION messages or other types
+
     public String toString(){
         return message;
     }

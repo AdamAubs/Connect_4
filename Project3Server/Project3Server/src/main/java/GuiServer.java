@@ -1,5 +1,4 @@
 
-import java.util.ArrayList;
 import java.util.HashMap;
 
 import javafx.application.Application;
@@ -8,18 +7,13 @@ import javafx.application.Platform;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.*;
 import javafx.stage.WindowEvent;
 
 public class GuiServer extends Application{
@@ -38,6 +32,7 @@ public class GuiServer extends Application{
 	ListView<String> connectedClientsList;
 	ListView<String> loggedInUsersList;
 	ListView<String> messageList;
+	ListView<String> gameSessionList;
 
 	public static void main(String[] args) {
 		launch(args);
@@ -58,6 +53,8 @@ public class GuiServer extends Application{
 		loggedInUsersList.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 		connectedClientsList = new ListView<>();
 		connectedClientsList.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		gameSessionList = new ListView<>();
+		gameSessionList.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		sceneMap = new HashMap<>();
 		sceneMap.put("server", createServerGui());
@@ -89,11 +86,15 @@ public class GuiServer extends Application{
 					case NEWCONNECTION:
 						// Add newly connected clients to the connectedClientsList to be displayed
 						connectedClientsList.getItems().add("Client #" + message.clientId + " has connected to the server");
+						break;
 					case TEXT:
 						messageList.getItems().add("From " + message.sender + ": " + message.message);
 						break;
 					case LOGIN:
 						loggedInUsersList.getItems().add("Client with username: " + message.sender + " has logged in.");
+						break;
+					case NEWGAMESESSION:
+						gameSessionList.getItems().add(message.message);
 						break;
 				}
 			} catch (Exception e) {
@@ -120,9 +121,14 @@ public class GuiServer extends Application{
 
 		HBox listsBox = new HBox(10, clientsBox, usersBox, messagesBox);
 
+		Label gameSessionsLabel = new Label("Active Game sessions");
+		gameSessionsLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		VBox gameSessionBox = new VBox(5, gameSessionsLabel, gameSessionList);
+		VBox verticalBox = new VBox(10, listsBox, gameSessionBox);
+
 		BorderPane mainPane = new BorderPane();
-		mainPane.setLeft(listsBox);
-		mainPane.setCenter(messagesBox);
+		mainPane.setLeft(verticalBox);
 		mainPane.setPadding(new Insets(10));
 
 		return new Scene(mainPane, 800, 800);

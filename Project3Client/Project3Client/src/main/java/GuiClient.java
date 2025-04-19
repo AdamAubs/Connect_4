@@ -15,6 +15,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
 
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
@@ -48,8 +49,24 @@ public class GuiClient extends Application{
 	Button logoutButton;
 	ListView<String> onlineUsersListView;
 
+	// Waiting List View
+	ListView<String> waitingListView;
+
+	// Game State View
+	ListView<String> gameStateListView;
+
 	// Game scene
+	Label gameBoardLabel;
+	GridPane gameBoardGrid;
 	VBox gameBox;
+
+	private GameState currentGameState = GameState.NOT_IN_GAME;
+	private int playerNumber;
+	private String opponentName;
+	private static int ROWS = 6;
+	private static int COLS = 7;
+	private int[][] gameBoard = new int[ROWS][COLS];
+
 	Label gameStatusLabel;
 	Button gameActionButton;
 
@@ -71,10 +88,9 @@ public class GuiClient extends Application{
 		messageListView = new ListView<>();
 		messageListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
-		// Create all scenes
+		// Add the login scene initially to the hashMap
 		sceneMap = new HashMap<>();
 		sceneMap.put("login", createLoginScene());
-		sceneMap.put("mainMenu", createMainMenuScene());
 
 		primaryStage.setOnCloseRequest(new EventHandler<WindowEvent>() {
 			@Override
@@ -101,13 +117,50 @@ public class GuiClient extends Application{
 				switch(message.type){
 					case TEXT:
 						messageListView.getItems().add("From " + message.sender + ": " + message.message);
+						break;
 					case LOGIN:
 						if (message.message.equals("success")) {
 							loggedIn = true;
+							// Create the main menu scene after the username is set
+							sceneMap.put("mainMenu", createMainMenuScene());
 							switchToScene("mainMenu");
 						} else {
 							statusLabel.setText("Login failed: " + message.message);
 						}
+						break;
+					case NEWONLINE:
+						if (message.message != null) {
+							onlineUsersListView.getItems().add(message.message);
+						} else {
+							System.out.println("Unable to add new online user to users to List view");
+						}
+						break;
+					case ALREADYONLINE:
+						if (message.message != null) {
+							onlineUsersListView.getItems().add(message.message);
+						} else {
+							System.out.println("Unable to add already online users to users to List view");
+						}
+						break;
+					case WAITING:
+						if (message.message != null) {
+							currentGameState = GameState.WAITING;
+							sceneMap.put("waiting", createWaitingScene());
+							switchToScene("waiting");
+							waitingListView.getItems().add(message.message);
+						} else {
+							System.out.println("Unable to add waiting message to List view");
+						}
+						break;
+					case GAME_STATE:
+						handleGameStateMessage(message);
+						break;
+					case GAME_ACTION:
+						// TODO: handleGameAction(message)
+						// reflect opponents move on client scene
+						break;
+					case DISCONNECTED:
+						// TODO: handleDisconnect(message)
 						break;
 					default:
 						System.out.println("Unhandled message type: " + message.type);
@@ -117,6 +170,48 @@ public class GuiClient extends Application{
 				e.printStackTrace();
 			}
 		});
+	}
+
+	// Takes in a message that contains the state of the gameboard
+	// TODO: finish handling game states
+	private void handleGameStateMessage(Message message) {
+
+		// Update clients game board
+		if (message.gameboard != null) {
+			this.gameBoard = message.gameboard;
+		}
+
+		if (message.player1username != null && message.player2username != null) {
+			// Set player numbers
+			if (message.player1username.equals(this.username)) {
+				playerNumber = 1;
+				opponentName = message.player2username;
+			} else {
+				playerNumber = 2;
+				opponentName = message.player1username;
+			}
+		}
+
+		// Handle different game states
+
+		// starting game state, sets up board
+		if (message.message.equals("Starting game")) {
+			currentGameState = GameState.GAME_STARTING;
+			sceneMap.put("game", createGameScene());
+			switchToScene("game");
+			updateGameBoardUI();
+			gameStateListView.getItems().add("Game started against " + opponentName);
+
+			// Set initial turn
+			if (message.currentPlayer == playerNumber) {
+				currentGameState = GameState.MY_TURN;
+				gameStateListView.getItems().add("Your turn!");
+			} else {
+				currentGameState = GameState.OPPONENT_TURN;
+				gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
+			}
+		}
+		// TODO: handle other game states
 	}
 
 	private void switchToScene(String sceneName) {
@@ -169,38 +264,101 @@ public class GuiClient extends Application{
 	}
 
 	private Scene createMainMenuScene() {
-		joinGameButton = new Button("Join Button");
-		joinGameButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-
 		logoutButton = new Button("Logout");
 		logoutButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		onlineUsersListView = new ListView<>();
+		onlineUsersListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		joinGameButton = new Button("Join Button");
+		joinGameButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		// When clicked, a new message is sent to the server
+		// where the player is put into the waiting queue
+		joinGameButton.setOnAction(e -> {
+			Message joinGameMsg = new Message(MessageType.JOIN_GAME, this.username, "join game request");
+			clientConnection.send(joinGameMsg);
+		});
+
 		Label usersLabel = new Label("Online Users:");
 		usersLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
-		Label mainMenuLabel = new Label();
+		Label mainMenuLabel = new Label("Main Menu - Welcome " + this.username);
 		mainMenuLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
-		Label chatLabel = new Label();
+		HBox buttonBox = new HBox(10, joinGameButton, logoutButton);
+
+		Label chatLabel = new Label("Chat: ");
 		chatLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
-		HBox buttonBox = new HBox(10, joinGameButton, logoutButton);
+		TextField messageField = new TextField();
+
+		Button sendMessageToAllClientsBtn = new Button("Send to All Clients");
+		sendMessageToAllClientsBtn.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		HBox messageSendBox = new HBox( 10, messageField, sendMessageToAllClientsBtn);
 
 		VBox mainMenuBox = new VBox(10);
 		mainMenuBox.setPadding(new Insets(20));
 		mainMenuBox.getChildren().addAll(
-				new Label("Main Menu - Welcome " + username),
+				mainMenuLabel,
 				usersLabel,
 				onlineUsersListView,
 				buttonBox,
-				new Label("Chat:"),
+				chatLabel,
 				messageListView,
-				new HBox(10, messageField = new TextField(), sendButton = new Button("Send"))
+				messageSendBox
 		);
 
 		return new Scene(mainMenuBox, 500, 500);
 	}
 
+	private Scene createWaitingScene() {
+		waitingListView = new ListView<>();
+		waitingListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		VBox mainMenuBox = new VBox(10);
+		mainMenuBox.setPadding(new Insets(20));
+		mainMenuBox.getChildren().addAll(
+			waitingListView
+		);
+
+		return new Scene(mainMenuBox, 500, 500);
+	}
+
+	// TODO: Enhance this to be interactive
+	private Scene createGameScene() {
+		gameBoardLabel = new Label("Game against " + opponentName);
+		gameBoardLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		gameBoardGrid = new GridPane();
+		for (int row = 0; row < ROWS; row++) {
+			for (int col = 0; col < COLS; col++) {
+				Button cell = new Button();
+				cell.setPrefSize(40, 40);
+
+				gameBoardGrid.add(cell, col, row);
+			}
+		}
+
+		gameStateListView = new ListView<>();
+		gameStateListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		gameBox = new VBox(10, gameBoardLabel, gameBoardGrid, gameStateListView);
+		gameBox.setPadding(new Insets(20));
+
+		return new Scene(gameBox, 800, 800);
+	}
+
+	// Called when game state changes, updates based on gameboard passed
+	// in message from server. Also updates who turn it is.
+	private void updateGameBoardUI() {
+		// TODO: implement
+	}
+
+	private void makeMove(int column) {
+		// TODO: Implementing sending message back to server to update gameboard
+		//
+	}
 
 }

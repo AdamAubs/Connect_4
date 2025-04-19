@@ -3,12 +3,15 @@ import java.io.Serializable;
 public class Message implements Serializable {
     static final long serialVersionUID = 42L;
 
+
     int clientId; // Index of client in ArrayList of clients
     MessageType type; // Can be text, newUser, disconnected
     String sender; // Username of sender
-    int recipient; // Id of recipient
     String message; // General message content
-    Object data; // Additional data that might be required
+    String player1username;
+    String player2username;
+    int currentPlayer; // Indicates which players turn it is (player 1 or 2)
+    int[][] gameBoard;
 
     public Message(String input){
         message = input;
@@ -20,17 +23,22 @@ public class Message implements Serializable {
         this.clientId = count;
     }
 
-    public Message(String input, int rec) {
-        message = input;
-        recipient = rec;
-        type = MessageType.TEXT;
-    }
-
     public Message(MessageType type, String sender, String message) {
         this.type = type;
         this.sender = sender;
         this.message = message;
     }
+
+    public Message(MessageType type, String sender, String player1, String player2, String message, int[][] gameBoard, int currentPlayer) {
+        this.type = type;
+        this.sender = sender;
+        this.player1username = player1;
+        this.player2username = player2;
+        this.message = message;
+        this.gameBoard = gameBoard;
+        this.currentPlayer = currentPlayer;
+    }
+
     public String toString(){
         return message;
     }
