@@ -66,6 +66,7 @@ public class Server{
 		String player1Name;
 		String player2Name;
 		int[][] gameboard = new int[6][7];
+		// ********************************* change currentPlayer to be rand() % 2 + 1 for random starting??
 		int currentPlayer = 1; // 1 for player1, 2 for player2
 		boolean gameOver = false;
 		String winner = null;
@@ -87,6 +88,7 @@ public class Server{
 				}
 			}
 
+			// ********************************* change currentPlayer to be rand() % 2 + 1 for random starting??
 			currentPlayer = 1; // Player 1 goes first
 			gameOver = false;
 			winner = null;
@@ -94,10 +96,208 @@ public class Server{
 
 		// TODO: Add methods for making moves, checking for wins, etc.
 
+		// Takes an int representing player (1: player1, 2: player2) and
+		// sets lowest available space in column 1 and returns row
+		public int dropCol1(int player) {
+			int row = 5;
+			while (gameboard[row][0] != 0) {
+				row--;
+			}
+			gameboard[row][0] = player;
+			return row;
+		}
+
+		// Takes an int representing player (1: player1, 2: player2) and
+		// sets lowest available space in column 2 and returns row
+		public int dropCol2(int player) {
+			int row = 5;
+			while (gameboard[row][1] != 0) {
+				row--;
+			}
+			gameboard[row][1] = player;
+			return row;
+		}
+
+		// Takes an int representing player (1: player1, 2: player2) and
+		// sets lowest available space in column 3 and returns row
+		public int dropCol3(int player) {
+			int row = 5;
+			while (gameboard[row][2] != 0) {
+				row--;
+			}
+			gameboard[row][2] = player;
+			return row;
+		}
+
+		// Takes an int representing player (1: player1, 2: player2) and
+		// sets lowest available space in column 4 and returns row
+		public int dropCol4(int player) {
+			int row = 5;
+			while (gameboard[row][3] != 0) {
+				row--;
+			}
+			gameboard[row][3] = player;
+			return row;
+		}
+
+		// Takes an int representing player (1: player1, 2: player2) and
+		// sets lowest available space in column 5 and returns row
+		public int dropCol5(int player) {
+			int row = 5;
+			while (gameboard[row][4] != 0) {
+				row--;
+			}
+			gameboard[row][4] = player;
+			return row;
+		}
+
+		// Takes an int representing player (1: player1, 2: player2) and
+		// sets lowest available space in column 6 and returns row
+		public int dropCol6(int player) {
+			int row = 5;
+			while (gameboard[row][5] != 0) {
+				row--;
+			}
+			gameboard[row][5] = player;
+			return row;
+		}
+
+		// Takes an int representing player (1: player1, 2: player2) and
+		// sets lowest available space in column 7 and returns row
+		public int dropCol7(int player) {
+			int row = 5;
+			while (gameboard[row][6] != 0) {
+				row--;
+			}
+			gameboard[row][6] = player;
+			return row;
+		}
+
+		// Called by checkForWin, takes in row, col, and player of piece
+		// Returns the count of sequential pieces to the left and right for that player
+		public int checkHorizontal(int startRow, int startCol, int player) {
+			int count = 0;
+			// check left
+			int col = startCol;
+			while (col >= 0) {
+				if (gameboard[startRow][col] == player) {
+					count++;
+					col--;
+				} else break;
+			}
+			// check right
+			col = startCol+1;
+			while (col <= 6) {
+				if (gameboard[startRow][col] == player) {
+					count++;
+					col++;
+				} else break;
+			}
+			return count;
+		}
+
+		// Called by checkForWin, takes in row, col, and player of piece
+		// Returns the count of sequential pieces up and down for that player
+		public int checkVertical(int startRow, int startCol, int player) {
+			int count = 0;
+			// check up
+			int row = startRow;
+			while (row >= 0) {
+				if (gameboard[row][startCol] == player) {
+					count++;
+					row--;
+				} else break;
+			}
+			// check down
+			row = startRow+1;
+			while (row <= 5) {
+				if (gameboard[row][startCol] == player) {
+					count++;
+					row++;
+				} else break;
+			}
+			return count;
+		}
+
+		// Called by checkForWin, takes in row, col, and player of piece
+		// Returns the count of sequential pieces up-right and down-left for that player
+		public int checkDiagonalRight(int startRow, int startCol, int player) {
+			int count = 0;
+			// check up-right
+			int col = startCol;
+			int row = startRow;
+			while (col <= 6 && row >= 0) {
+				if (gameboard[row][col] == player) {
+					count++;
+					row--;
+					col++;
+				} else break;
+			}
+			// check down-left
+			col = startCol-1;
+			row = startRow+1;
+			while (col >= 0 && row <= 5) {
+				if (gameboard[row][col] == player) {
+					count++;
+					row++;
+					col--;
+				} else break;
+			}
+			return count;
+		}
+
+		// Called by checkForWin, takes in row, col, and player of piece
+		// Returns the count of sequential pieces up-left and down-right for that player
+		public int checkDiagonalLeft(int startRow, int startCol, int player) {
+			int count = 0;
+			// check up-left
+			int col = startCol;
+			int row = startRow;
+			while (col >= 0 && row >= 0) {
+				if (gameboard[row][col] == player) {
+					count++;
+					row--;
+					col--;
+				} else break;
+			}
+			// check down-right
+			col = startCol+1;
+			row = startRow+1;
+			while (col <= 6 && row <= 5) {
+				if (gameboard[row][col] == player) {
+					count++;
+					row++;
+					col++;
+				} else break;
+			}
+			return count;
+		}
+
+		// Takes in the row, col, and player number of a recently placed piece and
+		// calls directional check functions to set the winner if one is found
+		public void checkForWin(int row, int col, int player) {
+			if (checkHorizontal(row, col, player) >= 4) {
+				winner = player == 1 ? player1Name : player2Name;
+				return;
+			}
+			if (checkVertical(row, col, player) >= 4) {
+				winner = player == 1 ? player1Name : player2Name;
+				return;
+			}
+			if (checkDiagonalRight(row, col, player) >= 4) {
+				winner = player == 1 ? player1Name : player2Name;
+				return;
+			}
+			if (checkDiagonalLeft(row, col, player) >= 4) {
+				winner = player == 1 ? player1Name : player2Name;
+				return;
+			}
+		}
 	}
 
 	// Creates a new thread for a client
 	class ClientThread extends Thread{
+
 
 		Socket connection;
 		int count;
