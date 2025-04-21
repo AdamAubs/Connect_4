@@ -1,5 +1,6 @@
 
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
@@ -17,10 +18,14 @@ import javafx.scene.control.TextField;
 
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Circle;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
+
+import javafx.scene.paint.Color;
 
 public class GuiClient extends Application{
 	Font customFont = Font.font("Arial", 14);
@@ -58,6 +63,7 @@ public class GuiClient extends Application{
 	// Game scene
 	Label gameBoardLabel;
 	GridPane gameBoardGrid;
+	GridPane dropButtonGrid;
 	VBox gameBox;
 
 	private GameState currentGameState = GameState.NOT_IN_GAME;
@@ -332,26 +338,44 @@ public class GuiClient extends Application{
 		gameBoardLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		gameBoardGrid = new GridPane();
-		for (int row = 0; row < ROWS; row++) {
-			for (int col = 0; col < COLS; col++) {
-				Button cell = new Button();
-				cell.setPrefSize(40, 40);
+		dropButtonGrid = new GridPane();
 
-				gameBoardGrid.add(cell, col, row);
+		//create token drop buttons
+		for (int col = 0; col < COLS; col++) {
+			Button dropButton = new Button("↓");
+			Circle circle = new Circle(17);
+			dropButton.setShape(circle);
+			dropButton.setMinSize(34, 34);
+			dropButton.setMaxSize(34, 34);
+			StackPane stack = new StackPane(dropButton);
+			stack.setPrefSize(40, 40);
+			dropButtonGrid.add(stack, col, 0);
+		}
+		// create gameboard grid circles
+		for (int row = 1; row <= ROWS; row++) {
+			for (int col = 0; col < COLS; col++) {
+				StackPane stack = new StackPane();
+				stack.setPrefSize(40, 40);
+				stack.setStyle("-fx-border-color: black; -fx-background-color: gray");
+				Circle circle = new Circle(40 / 2.5);
+				circle.setFill(Color.WHITE);
+				stack.getChildren().add(circle);
+
+				gameBoardGrid.add(stack, col, row);
 			}
 		}
 
 		gameStateListView = new ListView<>();
 		gameStateListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
-		gameBox = new VBox(10, gameBoardLabel, gameBoardGrid, gameStateListView);
+		gameBox = new VBox(10, gameBoardLabel, dropButtonGrid, gameBoardGrid, gameStateListView);
 		gameBox.setPadding(new Insets(20));
 
-		return new Scene(gameBox, 800, 800);
+		return new Scene(gameBox, 800, 700);
 	}
 
 	// Called when game state changes, updates based on gameboard passed
-	// in message from server. Also updates who turn it is.
+	// in message from server. Also updates whose turn it is.
 	private void updateGameBoardUI() {
 		// TODO: implement
 	}
