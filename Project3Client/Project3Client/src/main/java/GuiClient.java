@@ -72,6 +72,8 @@ public class GuiClient extends Application{
 	private static int ROWS = 6;
 	private static int COLS = 7;
 	private int[][] gameBoard = new int[ROWS][COLS];
+	private Button[] columnButtons = new Button[COLS];
+	private StackPane[][] gameBoardDisplay = new StackPane[ROWS][COLS];
 
 	Label gameStatusLabel;
 	Button gameActionButton;
@@ -110,6 +112,13 @@ public class GuiClient extends Application{
 		// Show login scene first
 		primaryStage.setScene(sceneMap.get("login"));
 		primaryStage.show();
+	}
+
+	// set status of column buttons
+	private void setColumnButtonsEnabled(boolean enabled) {
+		for (Button button : columnButtons) {
+			button.setDisable(!enabled);
+		}
 	}
 
 	private void handleIncomingMessage(Message message) {
@@ -212,9 +221,11 @@ public class GuiClient extends Application{
 			if (message.currentPlayer == playerNumber) {
 				currentGameState = GameState.MY_TURN;
 				gameStateListView.getItems().add("Your turn!");
+				setColumnButtonsEnabled(true);
 			} else {
 				currentGameState = GameState.OPPONENT_TURN;
 				gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
+				setColumnButtonsEnabled(false);
 			}
 		}
 		// TODO: handle other game states
@@ -340,8 +351,9 @@ public class GuiClient extends Application{
 		gameBoardGrid = new GridPane();
 		dropButtonGrid = new GridPane();
 
-		//create token drop buttons
+		//create token drop buttons and save to columnButtons[] array
 		for (int col = 0; col < COLS; col++) {
+			// visuals
 			Button dropButton = new Button("↓");
 			Circle circle = new Circle(17);
 			dropButton.setShape(circle);
@@ -349,10 +361,18 @@ public class GuiClient extends Application{
 			dropButton.setMaxSize(34, 34);
 			StackPane stack = new StackPane(dropButton);
 			stack.setPrefSize(40, 40);
+
+			// actions
+			int currentCol = col;
+			dropButton.setOnAction(e -> {
+				makeMove(currentCol);
+			});
+
+			columnButtons[col] = dropButton; // add reference to array
 			dropButtonGrid.add(stack, col, 0);
 		}
-		// create gameboard grid circles
-		for (int row = 1; row <= ROWS; row++) {
+		// create gameboard grid circles and save to gameBoardDisplay array
+		for (int row = 0; row < ROWS; row++) {
 			for (int col = 0; col < COLS; col++) {
 				StackPane stack = new StackPane();
 				stack.setPrefSize(40, 40);
@@ -361,6 +381,7 @@ public class GuiClient extends Application{
 				circle.setFill(Color.WHITE);
 				stack.getChildren().add(circle);
 
+				gameBoardDisplay[row][col] = stack; // add reference to array
 				gameBoardGrid.add(stack, col, row);
 			}
 		}
@@ -383,6 +404,11 @@ public class GuiClient extends Application{
 	private void makeMove(int column) {
 		// TODO: Implementing sending message back to server to update gameboard
 		//
+		Message moveMessage = new Message(MessageType.GAME_ACTION, username, "move", column);
+		clientConnection.send(moveMessage);
+		gameStateListView.getItems().add("You dropped a token in column " + column);
+		currentGameState = GameState.OPPONENT_TURN;
+		setColumnButtonsEnabled(false);
 	}
 
 }
