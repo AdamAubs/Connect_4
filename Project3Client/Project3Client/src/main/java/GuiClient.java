@@ -406,7 +406,7 @@ public class GuiClient extends Application{
 		//
 		Message moveMessage = new Message(MessageType.GAME_ACTION, username, "move", column);
 		clientConnection.send(moveMessage);
-		gameStateListView.getItems().add("You dropped a token in column " + column);
+		gameStateListView.getItems().add("You dropped a token in column " + column+1);
 		currentGameState = GameState.OPPONENT_TURN;
 		setColumnButtonsEnabled(false);
 	}

@@ -32,8 +32,6 @@ public class Message implements Serializable {
     public Message(MessageType type, String sender, String message, int column) {
         this.type = type;
         this.sender = sender;
-//        this.player1username = player1;
-//        this.player2username = player2;
         this.message = message;
         this.lastMoveColumn = column;
     }
