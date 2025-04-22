@@ -12,6 +12,7 @@ public class Message implements Serializable {
     String player2username;
     int currentPlayer; // Indicates which players turn it is (player 1 or 2)
     int[][] gameBoard;
+    int lastMoveColumn;
 
     public Message(String input){
         message = input;
@@ -37,6 +38,14 @@ public class Message implements Serializable {
         this.message = message;
         this.gameBoard = gameBoard;
         this.currentPlayer = currentPlayer;
+    }
+
+    // message for game action
+    public Message(MessageType type, String sender, String message, int column) {
+        this.type = type;
+        this.sender = sender;
+        this.message = message;
+        this.lastMoveColumn = column;
     }
 
     public String toString(){

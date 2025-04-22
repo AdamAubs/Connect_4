@@ -96,80 +96,82 @@ public class Server{
 
 		// TODO: Add methods for making moves, checking for wins, etc.
 
-		// Takes an int representing player (1: player1, 2: player2) and
-		// sets lowest available space in column 1 and returns row
-		public int dropCol1(int player) {
-			int row = 5;
-			while (gameboard[row][0] != 0) {
-				row--;
-			}
-			gameboard[row][0] = player;
-			return row;
-		}
+//		// Takes an int representing player (1: player1, 2: player2) and
+//		// sets lowest available space in column 1 and returns row
+//		public int dropCol1(int player) {
+//			int row = 5;
+//			while (gameboard[row][0] != 0) {
+//				row--;
+//			}
+//			gameboard[row][0] = player;
+//			return row;
+//		}
+//
+//		// Takes an int representing player (1: player1, 2: player2) and
+//		// sets lowest available space in column 2 and returns row
+//		public int dropCol2(int player) {
+//			int row = 5;
+//			while (gameboard[row][1] != 0) {
+//				row--;
+//			}
+//			gameboard[row][1] = player;
+//			return row;
+//		}
+//
+//		// Takes an int representing player (1: player1, 2: player2) and
+//		// sets lowest available space in column 3 and returns row
+//		public int dropCol3(int player) {
+//			int row = 5;
+//			while (gameboard[row][2] != 0) {
+//				row--;
+//			}
+//			gameboard[row][2] = player;
+//			return row;
+//		}
+//
+//		// Takes an int representing player (1: player1, 2: player2) and
+//		// sets lowest available space in column 4 and returns row
+//		public int dropCol4(int player) {
+//			int row = 5;
+//			while (gameboard[row][3] != 0) {
+//				row--;
+//			}
+//			gameboard[row][3] = player;
+//			return row;
+//		}
+//
+//		// Takes an int representing player (1: player1, 2: player2) and
+//		// sets lowest available space in column 5 and returns row
+//		public int dropCol5(int player) {
+//			int row = 5;
+//			while (gameboard[row][4] != 0) {
+//				row--;
+//			}
+//			gameboard[row][4] = player;
+//			return row;
+//		}
+//
+//		// Takes an int representing player (1: player1, 2: player2) and
+//		// sets lowest available space in column 6 and returns row
+//		public int dropCol6(int player) {
+//			int row = 5;
+//			while (gameboard[row][5] != 0) {
+//				row--;
+//			}
+//			gameboard[row][5] = player;
+//			return row;
+//		}
 
-		// Takes an int representing player (1: player1, 2: player2) and
-		// sets lowest available space in column 2 and returns row
-		public int dropCol2(int player) {
+		// Takes an int representing column and player (1: player1, 2: player2) and
+		// sets lowest available space in col and returns row
+		public int dropToken(int col, int player) {
 			int row = 5;
-			while (gameboard[row][1] != 0) {
+			while (gameboard[row][col] != 0) {
 				row--;
 			}
-			gameboard[row][1] = player;
-			return row;
-		}
-
-		// Takes an int representing player (1: player1, 2: player2) and
-		// sets lowest available space in column 3 and returns row
-		public int dropCol3(int player) {
-			int row = 5;
-			while (gameboard[row][2] != 0) {
-				row--;
+			if (row >= 0) {
+				gameboard[row][col] = player;
 			}
-			gameboard[row][2] = player;
-			return row;
-		}
-
-		// Takes an int representing player (1: player1, 2: player2) and
-		// sets lowest available space in column 4 and returns row
-		public int dropCol4(int player) {
-			int row = 5;
-			while (gameboard[row][3] != 0) {
-				row--;
-			}
-			gameboard[row][3] = player;
-			return row;
-		}
-
-		// Takes an int representing player (1: player1, 2: player2) and
-		// sets lowest available space in column 5 and returns row
-		public int dropCol5(int player) {
-			int row = 5;
-			while (gameboard[row][4] != 0) {
-				row--;
-			}
-			gameboard[row][4] = player;
-			return row;
-		}
-
-		// Takes an int representing player (1: player1, 2: player2) and
-		// sets lowest available space in column 6 and returns row
-		public int dropCol6(int player) {
-			int row = 5;
-			while (gameboard[row][5] != 0) {
-				row--;
-			}
-			gameboard[row][5] = player;
-			return row;
-		}
-
-		// Takes an int representing player (1: player1, 2: player2) and
-		// sets lowest available space in column 7 and returns row
-		public int dropCol7(int player) {
-			int row = 5;
-			while (gameboard[row][6] != 0) {
-				row--;
-			}
-			gameboard[row][6] = player;
 			return row;
 		}
 
@@ -278,20 +280,37 @@ public class Server{
 		public void checkForWin(int row, int col, int player) {
 			if (checkHorizontal(row, col, player) >= 4) {
 				winner = player == 1 ? player1Name : player2Name;
+				gameOver = true;
 				return;
 			}
 			if (checkVertical(row, col, player) >= 4) {
 				winner = player == 1 ? player1Name : player2Name;
+				gameOver = true;
 				return;
 			}
 			if (checkDiagonalRight(row, col, player) >= 4) {
 				winner = player == 1 ? player1Name : player2Name;
+				gameOver = true;
 				return;
 			}
 			if (checkDiagonalLeft(row, col, player) >= 4) {
 				winner = player == 1 ? player1Name : player2Name;
+				gameOver = true;
 				return;
 			}
+		}
+
+		public boolean checkForDraw() {
+			for (int row = 0; row < 6; row++) {
+				for (int col = 0; col < 7; col++) {
+					if (gameboard[row][col] == 0) {
+						return false;
+					}
+				}
+			}
+			winner = "DRAW";
+			gameOver = true;
+			return true;
 		}
 	}
 
@@ -352,7 +371,7 @@ public class Server{
 							case GAME_STATE:
 								// TODO: implement handleGameState(clientMessage)
 							case GAME_ACTION:
-								// TODO: implement handleGameAction(clientMessage)
+								handleGameAction(clientMessage);
 							case DISCONNECTED:
 								// TODO: implement handleDisconnected(clientMessage)
 							case TEXT:
@@ -483,6 +502,59 @@ public class Server{
 		}
 
 		private void handleGameAction(Message gameActionMsg) {
+			if (currentGame == null) return;
+
+			int column = gameActionMsg.lastMoveColumn;
+			String activePlayer = gameActionMsg.sender;
+			int playerNumber = currentGame.player1Name.equals(activePlayer) ? 1 : 2;
+
+			// check if player is current player
+			if (currentGame.currentPlayer != playerNumber) return;
+
+			int row = currentGame.dropToken(column, playerNumber);
+			if (row == -1) return;
+
+			// check for winner
+			currentGame.checkForWin(row, column, playerNumber);
+
+			// check for draw
+			if (currentGame.winner == null) {
+				currentGame.checkForDraw();
+			}
+
+			// Prepare the game state message
+			try {
+				Message update1 = new Message(
+						MessageType.GAME_STATE,
+						"SERVER",
+						currentGame.player1Name,
+						currentGame.player2Name,
+						currentGame.winner != null ? "Winner: " + currentGame.winner : "Game in progress",
+						currentGame.gameboard,
+						currentGame.currentPlayer
+				);
+
+				Message update2 = new Message(
+						MessageType.GAME_STATE,
+						"SERVER",
+						currentGame.player2Name,
+						currentGame.player1Name,
+						currentGame.winner != null ? "Winner: " + currentGame.winner : "Game in progress",
+						currentGame.gameboard,
+						currentGame.currentPlayer
+				);
+
+				currentGame.player1.out.writeObject(update1);
+				currentGame.player2.out.writeObject(update2);
+
+				// Switch turns if game isn't over
+				if (currentGame.winner == null) {
+					currentGame.currentPlayer = currentGame.currentPlayer == 1 ? 2 : 1;
+				}
+
+			} catch (Exception e) {
+				System.err.println("Error updating game state: " + e.getMessage());
+			}
 
 		}
 
