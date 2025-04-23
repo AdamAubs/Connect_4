@@ -22,6 +22,9 @@ public class Server{
 	// Stores active game sessions
 	ArrayList<GameSession> activeSessions = new ArrayList<>();
 
+	// Maps players to game sessions
+	Map<String, GameSession> playerToSession = new HashMap<>();
+
 	// Waiting game queue
 	Queue<String> waitingQueue = new LinkedList<>();
 
@@ -92,75 +95,11 @@ public class Server{
 			currentPlayer = 1; // Player 1 goes first
 			gameOver = false;
 			winner = null;
+
+
 		}
 
 		// TODO: Add methods for making moves, checking for wins, etc.
-
-//		// Takes an int representing player (1: player1, 2: player2) and
-//		// sets lowest available space in column 1 and returns row
-//		public int dropCol1(int player) {
-//			int row = 5;
-//			while (gameboard[row][0] != 0) {
-//				row--;
-//			}
-//			gameboard[row][0] = player;
-//			return row;
-//		}
-//
-//		// Takes an int representing player (1: player1, 2: player2) and
-//		// sets lowest available space in column 2 and returns row
-//		public int dropCol2(int player) {
-//			int row = 5;
-//			while (gameboard[row][1] != 0) {
-//				row--;
-//			}
-//			gameboard[row][1] = player;
-//			return row;
-//		}
-//
-//		// Takes an int representing player (1: player1, 2: player2) and
-//		// sets lowest available space in column 3 and returns row
-//		public int dropCol3(int player) {
-//			int row = 5;
-//			while (gameboard[row][2] != 0) {
-//				row--;
-//			}
-//			gameboard[row][2] = player;
-//			return row;
-//		}
-//
-//		// Takes an int representing player (1: player1, 2: player2) and
-//		// sets lowest available space in column 4 and returns row
-//		public int dropCol4(int player) {
-//			int row = 5;
-//			while (gameboard[row][3] != 0) {
-//				row--;
-//			}
-//			gameboard[row][3] = player;
-//			return row;
-//		}
-//
-//		// Takes an int representing player (1: player1, 2: player2) and
-//		// sets lowest available space in column 5 and returns row
-//		public int dropCol5(int player) {
-//			int row = 5;
-//			while (gameboard[row][4] != 0) {
-//				row--;
-//			}
-//			gameboard[row][4] = player;
-//			return row;
-//		}
-//
-//		// Takes an int representing player (1: player1, 2: player2) and
-//		// sets lowest available space in column 6 and returns row
-//		public int dropCol6(int player) {
-//			int row = 5;
-//			while (gameboard[row][5] != 0) {
-//				row--;
-//			}
-//			gameboard[row][5] = player;
-//			return row;
-//		}
 
 		// Takes an int representing column and player (1: player1, 2: player2) and
 		// sets lowest available space in col and returns row
@@ -311,6 +250,11 @@ public class Server{
 			winner = "DRAW";
 			gameOver = true;
 			return true;
+		}
+
+		// change currentPlayer to the next player
+		public void switchTurn() {
+			currentPlayer = (currentPlayer == 1) ? 2 : 1;
 		}
 	}
 
@@ -466,6 +410,8 @@ public class Server{
 							// Create new game session
 							GameSession newGame = new GameSession(player1, player2, player1username, player2username);
 							activeSessions.add(newGame);
+							playerToSession.put(player1username, newGame);
+							playerToSession.put(player2username, newGame);
 
 							// Set current game for both players
 							player1.currentGame = newGame;
@@ -511,6 +457,7 @@ public class Server{
 			// check if player is current player
 			if (currentGame.currentPlayer != playerNumber) return;
 
+			// drop token in specified column and capture the row it ended on
 			int row = currentGame.dropToken(column, playerNumber);
 			if (row == -1) return;
 
@@ -522,35 +469,37 @@ public class Server{
 				currentGame.checkForDraw();
 			}
 
-			// Prepare the game state message
+			// Switch turns if game isn't over
+			if (currentGame.winner == null) {
+				currentGame.currentPlayer = currentGame.currentPlayer == 1 ? 2 : 1;
+			}
+
+			// Create game status message
+			String statusMessage;
+			if (currentGame.winner != null && currentGame.winner.equals("DRAW")) {
+				statusMessage = "The game is a draw.";
+			} else if (currentGame.winner != null) {
+				statusMessage = "Winner: " + currentGame.winner;
+			} else {
+				statusMessage = "Player " + playerNumber + " dropped a token in column " + column;
+			}
+
+			// Prepare and send game state message
 			try {
-				Message update1 = new Message(
-						MessageType.GAME_STATE,
+
+				Message gameStateMsg = new Message(
+						MessageType.GAME_ACTION,
 						"SERVER",
 						currentGame.player1Name,
 						currentGame.player2Name,
-						currentGame.winner != null ? "Winner: " + currentGame.winner : "Game in progress",
+						statusMessage,
 						currentGame.gameboard,
-						currentGame.currentPlayer
+						currentGame.currentPlayer == 1 ? 2 : 1
 				);
+				gameStateMsg.lastMoveColumn = column;
 
-				Message update2 = new Message(
-						MessageType.GAME_STATE,
-						"SERVER",
-						currentGame.player2Name,
-						currentGame.player1Name,
-						currentGame.winner != null ? "Winner: " + currentGame.winner : "Game in progress",
-						currentGame.gameboard,
-						currentGame.currentPlayer
-				);
-
-				currentGame.player1.out.writeObject(update1);
-				currentGame.player2.out.writeObject(update2);
-
-				// Switch turns if game isn't over
-				if (currentGame.winner == null) {
-					currentGame.currentPlayer = currentGame.currentPlayer == 1 ? 2 : 1;
-				}
+				if(currentGame.player1.out != null) currentGame.player1.out.writeObject(gameStateMsg);
+				if(currentGame.player2.out != null) currentGame.player2.out.writeObject(gameStateMsg);
 
 			} catch (Exception e) {
 				System.err.println("Error updating game state: " + e.getMessage());

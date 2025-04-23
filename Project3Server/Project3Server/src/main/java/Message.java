@@ -30,6 +30,7 @@ public class Message implements Serializable {
         this.message = message;
     }
 
+    // Game_Action message
     public Message(MessageType type, String sender, String player1, String player2, String message, int[][] gameBoard, int currentPlayer) {
         this.type = type;
         this.sender = sender;
