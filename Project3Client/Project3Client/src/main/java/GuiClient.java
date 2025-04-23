@@ -173,6 +173,7 @@ public class GuiClient extends Application{
 					case GAME_ACTION:
 						// TODO: handleGameAction(message)
 						// reflect opponents move on client scene
+						handleGameActionMessage(message);
 						break;
 					case DISCONNECTED:
 						// TODO: handleDisconnect(message)
@@ -229,6 +230,28 @@ public class GuiClient extends Application{
 			}
 		}
 		// TODO: handle other game states
+	}
+
+	private void handleGameActionMessage(Message message) {
+		if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+			int col = message.lastMoveColumn;
+
+			// Simulate dropping the opponent's token
+			for (int row = ROWS - 1; row >= 0; row--) {
+				if (gameBoard[row][col] == 0) {
+					gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+					break;
+				}
+			}
+
+			updateGameBoardUI();
+
+			// Update state
+			currentGameState = GameState.MY_TURN;
+			gameStateListView.getItems().add(opponentName + " dropped a token in column " + col);
+			gameStateListView.getItems().add("Your turn!");
+			setColumnButtonsEnabled(true);
+		}
 	}
 
 	private void switchToScene(String sceneName) {
@@ -343,7 +366,6 @@ public class GuiClient extends Application{
 		return new Scene(mainMenuBox, 500, 500);
 	}
 
-	// TODO: Enhance this to be interactive
 	private Scene createGameScene() {
 		gameBoardLabel = new Label("Game against " + opponentName);
 		gameBoardLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
@@ -399,6 +421,24 @@ public class GuiClient extends Application{
 	// in message from server. Also updates whose turn it is.
 	private void updateGameBoardUI() {
 		// TODO: implement
+		for (int row = 0; row < ROWS; row++) {
+			for (int col = 0; col < COLS; col++) {
+				StackPane cell = gameBoardDisplay[row][col];
+				Circle circle = (Circle) cell.getChildren().get(0);
+
+				switch (gameBoard[row][col]) {
+					case 0:
+						circle.setFill(Color.WHITE);
+						break;
+					case 1:
+						circle.setFill(Color.RED); // Player 1 color
+						break;
+					case 2:
+						circle.setFill(Color.YELLOW); // Player 2 color
+						break;
+				}
+			}
+		}
 	}
 
 	private void makeMove(int column) {
