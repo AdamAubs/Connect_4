@@ -485,7 +485,6 @@ public class Server{
 			}
 
 
-
 			// Prepare and send game state message
 			try {
 				if (currentGame.winner != null) {

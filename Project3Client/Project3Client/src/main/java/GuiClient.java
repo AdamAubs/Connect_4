@@ -60,11 +60,17 @@ public class GuiClient extends Application{
 	// Game State View
 	ListView<String> gameStateListView;
 
-	// Game scene
+	// Game winner/loser pop up display
+	StackPane gameDisplay;
+
+	// Gameboard
 	Label gameBoardLabel;
 	GridPane gameBoardGrid;
 	GridPane dropButtonGrid;
 	VBox gameBox;
+
+	// Winner pop up
+
 
 	private GameState currentGameState = GameState.NOT_IN_GAME;
 	private int playerNumber;
@@ -208,8 +214,6 @@ public class GuiClient extends Application{
 			}
 		}
 
-		// Handle different game states
-
 		// starting game state, sets up board
 		if (message.message.equals("Starting game")) {
 			currentGameState = GameState.GAME_STARTING;
@@ -236,47 +240,63 @@ public class GuiClient extends Application{
 			// somebody won
 			currentGameState = GameState.GAME_OVER;
 
-			System.out.println(message.currentPlayer);
+			gameDisplay = new StackPane();
+			String winner = "";
 
-			if (message.currentPlayer == 1) {
-				// Make the final move
-				if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
-					int col = message.lastMoveColumn;
-					// Simulate dropping the opponent's token
-					for (int row = ROWS - 1; row >= 0; row--) {
-						if (gameBoard[row][col] == 0) {
-							//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+			// Make the final move
+			if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+				int col = message.lastMoveColumn;
+				// Simulate dropping the opponent's token
+				for (int row = ROWS - 1; row >= 0; row--) {
+					if (gameBoard[row][col] == 0) {
+						if (message.currentPlayer == 1) {
 							gameBoard[row][col] = 2;
-							break;
-						}
-					}
-				}
-
-				updateGameBoardUI();
-				gameStateListView.getItems().add("Player: " + message.player1username + " won!");
-				gameStateListView.getItems().add("Ending game");
-			} else {
-				// Make the final move
-				if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
-					int col = message.lastMoveColumn;
-					// Simulate dropping the opponent's token
-					for (int row = ROWS - 1; row >= 0; row--) {
-						if (gameBoard[row][col] == 0) {
-							//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+							winner = message.player1username;
+						} else {
 							gameBoard[row][col] = 1;
-							break;
+							winner = message.player2username;
 						}
+						break;
 					}
 				}
-
-				updateGameBoardUI();
-				gameStateListView.getItems().add("Player: " + message.player2username + " won!");
-				gameStateListView.getItems().add("Ending game");
 			}
+			updateGameBoardUI();
+
+			String resultMessage = winner.equals(username) ? "You won!" : "You lost!";
+			showGameResultPopup("Game over", resultMessage);
+
+			gameStateListView.getItems().add("Player: " + winner + " won!");
+			gameStateListView.getItems().add("Ending game");
 
 			// Send message back to server to end the game
 		}
-		// TODO: handle other game states
+	}
+
+	private void showGameResultPopup(String title, String message) {
+		Stage popupStage = new Stage();
+		popupStage.setTitle(title);
+
+		Label messageLabel = new Label(message);
+		messageLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		messageLabel.setTextFill(Color.BLACK);
+
+		Button rematchButton = new Button("Rematch");
+		rematchButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		rematchButton.setOnAction(e -> popupStage.close());
+
+		Button mainMenuButton = new Button("Main Menu");
+		mainMenuButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		mainMenuButton.setOnAction(e -> popupStage.close());
+
+		VBox layout = new VBox(10);
+		layout.setPadding(new Insets(20));
+		layout.getChildren().addAll(messageLabel, rematchButton, mainMenuButton);
+		layout.setStyle("-fx-background-color: white; -fx-alignment: center;");
+
+		Scene scene = new Scene(layout, 300, 150);
+		popupStage.setScene(scene);
+		popupStage.setAlwaysOnTop(true);
+		popupStage.showAndWait();
 	}
 
 	private void handleGameActionMessage(Message message) {
@@ -294,8 +314,8 @@ public class GuiClient extends Application{
 			}
 
 			updateGameBoardUI();
-			//System.out.println(message.);
 
+			// Get the player who sent the message
 			if (message.player1username != null && message.player2username != null) {
 				// Set player numbers
 				if (message.player1username.equals(this.username)) {
@@ -308,7 +328,7 @@ public class GuiClient extends Application{
 			}
 
 			if (message.currentPlayer == playerNumber) {
-				// Update state
+				// Update gameboard
 				currentGameState = GameState.MY_TURN;
 				gameStateListView.getItems().add(opponentName + " dropped a token in column " + col);
 				gameStateListView.getItems().add("Your turn!");
@@ -508,17 +528,11 @@ public class GuiClient extends Application{
 	}
 
 	private void makeMove(int column) {
-		// TODO: Implementing sending message back to server to update gameboard
-		//
 		gameStateListView.getItems().add("You dropped a token in column " + column+1);
 		currentGameState = GameState.OPPONENT_TURN;
 		setColumnButtonsEnabled(false);
 		Message moveMessage = new Message(MessageType.GAME_ACTION, username, "move", column);
 		clientConnection.send(moveMessage);
-//		gameStateListView.getItems().add("You dropped a token in column " + column+1);
-//		currentGameState = GameState.OPPONENT_TURN;
-		//setColumnButtonsEnabled(false);
-
 	}
 
 }
