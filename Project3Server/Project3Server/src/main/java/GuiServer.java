@@ -131,7 +131,7 @@ public class GuiServer extends Application{
 		mainPane.setLeft(verticalBox);
 		mainPane.setPadding(new Insets(10));
 
-		return new Scene(mainPane, 800, 800);
+		return new Scene(mainPane, 800, 700);
 	}
 
 }

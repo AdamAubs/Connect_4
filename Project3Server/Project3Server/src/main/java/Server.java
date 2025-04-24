@@ -22,6 +22,9 @@ public class Server{
 	// Stores active game sessions
 	ArrayList<GameSession> activeSessions = new ArrayList<>();
 
+	// Maps players to game sessions
+	Map<String, GameSession> playerToSession = new HashMap<>();
+
 	// Waiting game queue
 	Queue<String> waitingQueue = new LinkedList<>();
 
@@ -66,6 +69,7 @@ public class Server{
 		String player1Name;
 		String player2Name;
 		int[][] gameboard = new int[6][7];
+		// ********************************* change currentPlayer to be rand() % 2 + 1 for random starting??
 		int currentPlayer = 1; // 1 for player1, 2 for player2
 		boolean gameOver = false;
 		String winner = null;
@@ -87,17 +91,176 @@ public class Server{
 				}
 			}
 
+			// ********************************* change currentPlayer to be rand() % 2 + 1 for random starting??
 			currentPlayer = 1; // Player 1 goes first
 			gameOver = false;
 			winner = null;
+
+
 		}
 
 		// TODO: Add methods for making moves, checking for wins, etc.
 
+		// Takes an int representing column and player (1: player1, 2: player2) and
+		// sets lowest available space in col and returns row
+		public int dropToken(int col, int player) {
+			int row = 5;
+			while (gameboard[row][col] != 0) {
+				row--;
+			}
+			if (row >= 0) {
+				gameboard[row][col] = player;
+			}
+			return row;
+		}
+
+		// Called by checkForWin, takes in row, col, and player of piece
+		// Returns the count of sequential pieces to the left and right for that player
+		public int checkHorizontal(int startRow, int startCol, int player) {
+			int count = 0;
+			// check left
+			int col = startCol;
+			while (col >= 0) {
+				if (gameboard[startRow][col] == player) {
+					count++;
+					col--;
+				} else break;
+			}
+			// check right
+			col = startCol+1;
+			while (col <= 6) {
+				if (gameboard[startRow][col] == player) {
+					count++;
+					col++;
+				} else break;
+			}
+			return count;
+		}
+
+		// Called by checkForWin, takes in row, col, and player of piece
+		// Returns the count of sequential pieces up and down for that player
+		public int checkVertical(int startRow, int startCol, int player) {
+			int count = 0;
+			// check up
+			int row = startRow;
+			while (row >= 0) {
+				if (gameboard[row][startCol] == player) {
+					count++;
+					row--;
+				} else break;
+			}
+			// check down
+			row = startRow+1;
+			while (row <= 5) {
+				if (gameboard[row][startCol] == player) {
+					count++;
+					row++;
+				} else break;
+			}
+			return count;
+		}
+
+		// Called by checkForWin, takes in row, col, and player of piece
+		// Returns the count of sequential pieces up-right and down-left for that player
+		public int checkDiagonalRight(int startRow, int startCol, int player) {
+			int count = 0;
+			// check up-right
+			int col = startCol;
+			int row = startRow;
+			while (col <= 6 && row >= 0) {
+				if (gameboard[row][col] == player) {
+					count++;
+					row--;
+					col++;
+				} else break;
+			}
+			// check down-left
+			col = startCol-1;
+			row = startRow+1;
+			while (col >= 0 && row <= 5) {
+				if (gameboard[row][col] == player) {
+					count++;
+					row++;
+					col--;
+				} else break;
+			}
+			return count;
+		}
+
+		// Called by checkForWin, takes in row, col, and player of piece
+		// Returns the count of sequential pieces up-left and down-right for that player
+		public int checkDiagonalLeft(int startRow, int startCol, int player) {
+			int count = 0;
+			// check up-left
+			int col = startCol;
+			int row = startRow;
+			while (col >= 0 && row >= 0) {
+				if (gameboard[row][col] == player) {
+					count++;
+					row--;
+					col--;
+				} else break;
+			}
+			// check down-right
+			col = startCol+1;
+			row = startRow+1;
+			while (col <= 6 && row <= 5) {
+				if (gameboard[row][col] == player) {
+					count++;
+					row++;
+					col++;
+				} else break;
+			}
+			return count;
+		}
+
+		// Takes in the row, col, and player number of a recently placed piece and
+		// calls directional check functions to set the winner if one is found
+		public void checkForWin(int row, int col, int player) {
+			if (checkHorizontal(row, col, player) >= 4) {
+				winner = player == 1 ? player1Name : player2Name;
+				gameOver = true;
+				return;
+			}
+			if (checkVertical(row, col, player) >= 4) {
+				winner = player == 1 ? player1Name : player2Name;
+				gameOver = true;
+				return;
+			}
+			if (checkDiagonalRight(row, col, player) >= 4) {
+				winner = player == 1 ? player1Name : player2Name;
+				gameOver = true;
+				return;
+			}
+			if (checkDiagonalLeft(row, col, player) >= 4) {
+				winner = player == 1 ? player1Name : player2Name;
+				gameOver = true;
+				return;
+			}
+		}
+
+		public boolean checkForDraw() {
+			for (int row = 0; row < 6; row++) {
+				for (int col = 0; col < 7; col++) {
+					if (gameboard[row][col] == 0) {
+						return false;
+					}
+				}
+			}
+			winner = "DRAW";
+			gameOver = true;
+			return true;
+		}
+
+		// change currentPlayer to the next player
+		public void switchTurn() {
+			currentPlayer = (currentPlayer == 1) ? 2 : 1;
+		}
 	}
 
 	// Creates a new thread for a client
 	class ClientThread extends Thread{
+
 
 		Socket connection;
 		int count;
@@ -152,7 +315,7 @@ public class Server{
 							case GAME_STATE:
 								// TODO: implement handleGameState(clientMessage)
 							case GAME_ACTION:
-								// TODO: implement handleGameAction(clientMessage)
+								handleGameAction(clientMessage);
 							case DISCONNECTED:
 								// TODO: implement handleDisconnected(clientMessage)
 							case TEXT:
@@ -247,6 +410,8 @@ public class Server{
 							// Create new game session
 							GameSession newGame = new GameSession(player1, player2, player1username, player2username);
 							activeSessions.add(newGame);
+							playerToSession.put(player1username, newGame);
+							playerToSession.put(player2username, newGame);
 
 							// Set current game for both players
 							player1.currentGame = newGame;
@@ -278,6 +443,93 @@ public class Server{
 					System.out.println("Error creating game: " + e.getMessage());
 					e.printStackTrace();
 				}
+			}
+
+		}
+
+		private void handleGameAction(Message gameActionMsg) {
+			if (currentGame == null) return;
+
+			int column = gameActionMsg.lastMoveColumn;
+			String activePlayer = gameActionMsg.sender;
+			int playerNumber = currentGame.player1Name.equals(activePlayer) ? 1 : 2;
+
+			// check if player is current player
+			if (currentGame.currentPlayer != playerNumber) return;
+
+			// drop token in specified column and capture the row it ended on
+			int row = currentGame.dropToken(column, playerNumber);
+			if (row == -1) return;
+
+			// check for winner
+			currentGame.checkForWin(row, column, playerNumber);
+
+			// check for draw
+			if (currentGame.winner == null) {
+				currentGame.checkForDraw();
+			}
+
+			// Switch turns if game isn't over
+			if (currentGame.winner == null) {
+				currentGame.currentPlayer = currentGame.currentPlayer == 1 ? 2 : 1;
+			}
+
+			// Create game status message
+			String statusMessage;
+			if (currentGame.winner != null && currentGame.winner.equals("DRAW")) {
+				statusMessage = "The game is a draw.";
+			} else if (currentGame.winner != null) {
+				statusMessage = "Winner: " + currentGame.winner;
+			} else {
+				statusMessage = "Player " + playerNumber + " dropped a token in column " + column;
+			}
+
+
+
+			// Prepare and send game state message
+			try {
+				if (currentGame.winner != null) {
+					Message gameStateMsg = new Message(
+							MessageType.GAME_STATE,
+							"SERVER",
+							currentGame.player1Name,
+							currentGame.player2Name,
+							statusMessage,
+							currentGame.gameboard,
+							currentGame.currentPlayer
+					);
+					gameStateMsg.lastMoveColumn = column;
+					if(currentGame.player1.out != null) currentGame.player1.out.writeObject(gameStateMsg);
+					if(currentGame.player2.out != null) currentGame.player2.out.writeObject(gameStateMsg);
+				} else if (currentGame.winner != null && currentGame.winner.equals("DRAW")) {
+					Message gameStateMsg = new Message(
+							MessageType.GAME_STATE,
+							"SERVER",
+							currentGame.player1Name,
+							currentGame.player2Name,
+							statusMessage,
+							currentGame.gameboard,
+							currentGame.currentPlayer
+					);
+					gameStateMsg.lastMoveColumn = column;
+					if(currentGame.player1.out != null) currentGame.player1.out.writeObject(gameStateMsg);
+					if(currentGame.player2.out != null) currentGame.player2.out.writeObject(gameStateMsg);
+				} else {
+					Message gameStateMsg = new Message(
+							MessageType.GAME_ACTION,
+							"SERVER",
+							currentGame.player1Name,
+							currentGame.player2Name,
+							statusMessage,
+							currentGame.gameboard,
+							currentGame.currentPlayer
+					);
+					gameStateMsg.lastMoveColumn = column;
+					if(currentGame.player1.out != null) currentGame.player1.out.writeObject(gameStateMsg);
+					if(currentGame.player2.out != null) currentGame.player2.out.writeObject(gameStateMsg);
+				}
+			} catch (Exception e) {
+				System.err.println("Error updating game state: " + e.getMessage());
 			}
 
 		}

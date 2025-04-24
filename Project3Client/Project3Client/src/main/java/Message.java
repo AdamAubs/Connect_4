@@ -28,6 +28,14 @@ public class Message implements Serializable {
 
     // TODO: might need to add more constructors to send GAME_ACTION messages or other types
 
+    // message for game action
+    public Message(MessageType type, String sender, String message, int column) {
+        this.type = type;
+        this.sender = sender;
+        this.message = message;
+        this.lastMoveColumn = column;
+    }
+
     public String toString(){
         return message;
     }

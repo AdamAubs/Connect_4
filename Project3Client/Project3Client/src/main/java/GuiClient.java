@@ -1,5 +1,6 @@
 
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
@@ -17,10 +18,14 @@ import javafx.scene.control.TextField;
 
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Circle;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
+
+import javafx.scene.paint.Color;
 
 public class GuiClient extends Application{
 	Font customFont = Font.font("Arial", 14);
@@ -58,6 +63,7 @@ public class GuiClient extends Application{
 	// Game scene
 	Label gameBoardLabel;
 	GridPane gameBoardGrid;
+	GridPane dropButtonGrid;
 	VBox gameBox;
 
 	private GameState currentGameState = GameState.NOT_IN_GAME;
@@ -66,6 +72,8 @@ public class GuiClient extends Application{
 	private static int ROWS = 6;
 	private static int COLS = 7;
 	private int[][] gameBoard = new int[ROWS][COLS];
+	private Button[] columnButtons = new Button[COLS];
+	private StackPane[][] gameBoardDisplay = new StackPane[ROWS][COLS];
 
 	Label gameStatusLabel;
 	Button gameActionButton;
@@ -104,6 +112,13 @@ public class GuiClient extends Application{
 		// Show login scene first
 		primaryStage.setScene(sceneMap.get("login"));
 		primaryStage.show();
+	}
+
+	// set status of column buttons
+	private void setColumnButtonsEnabled(boolean enabled) {
+		for (Button button : columnButtons) {
+			button.setDisable(!enabled);
+		}
 	}
 
 	private void handleIncomingMessage(Message message) {
@@ -158,6 +173,7 @@ public class GuiClient extends Application{
 					case GAME_ACTION:
 						// TODO: handleGameAction(message)
 						// reflect opponents move on client scene
+						handleGameActionMessage(message);
 						break;
 					case DISCONNECTED:
 						// TODO: handleDisconnect(message)
@@ -206,12 +222,101 @@ public class GuiClient extends Application{
 			if (message.currentPlayer == playerNumber) {
 				currentGameState = GameState.MY_TURN;
 				gameStateListView.getItems().add("Your turn!");
+				gameStateListView.getItems().add("Player " + message.currentPlayer);
+				setColumnButtonsEnabled(true);
 			} else {
 				currentGameState = GameState.OPPONENT_TURN;
 				gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
+				setColumnButtonsEnabled(false);
 			}
+		} else if (message.message.equals("The game is a draw.")) {
+			currentGameState = GameState.DRAW;
+			// put pop up here
+		} else {
+			// somebody won
+			currentGameState = GameState.GAME_OVER;
+
+			System.out.println(message.currentPlayer);
+
+			if (message.currentPlayer == 1) {
+				// Make the final move
+				if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+					int col = message.lastMoveColumn;
+					// Simulate dropping the opponent's token
+					for (int row = ROWS - 1; row >= 0; row--) {
+						if (gameBoard[row][col] == 0) {
+							//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+							gameBoard[row][col] = 2;
+							break;
+						}
+					}
+				}
+
+				updateGameBoardUI();
+				gameStateListView.getItems().add("Player: " + message.player1username + " won!");
+				gameStateListView.getItems().add("Ending game");
+			} else {
+				// Make the final move
+				if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+					int col = message.lastMoveColumn;
+					// Simulate dropping the opponent's token
+					for (int row = ROWS - 1; row >= 0; row--) {
+						if (gameBoard[row][col] == 0) {
+							//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+							gameBoard[row][col] = 1;
+							break;
+						}
+					}
+				}
+
+				updateGameBoardUI();
+				gameStateListView.getItems().add("Player: " + message.player2username + " won!");
+				gameStateListView.getItems().add("Ending game");
+			}
+
+			// Send message back to server to end the game
 		}
 		// TODO: handle other game states
+	}
+
+	private void handleGameActionMessage(Message message) {
+		if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+			int col = message.lastMoveColumn;
+
+			System.out.println(message.currentPlayer);
+			// Simulate dropping the opponent's token
+			for (int row = ROWS - 1; row >= 0; row--) {
+				if (gameBoard[row][col] == 0) {
+					//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+					gameBoard[row][col] = message.currentPlayer;
+					break;
+				}
+			}
+
+			updateGameBoardUI();
+			//System.out.println(message.);
+
+			if (message.player1username != null && message.player2username != null) {
+				// Set player numbers
+				if (message.player1username.equals(this.username)) {
+					playerNumber = 1;
+					opponentName = message.player2username;
+				} else {
+					playerNumber = 2;
+					opponentName = message.player1username;
+				}
+			}
+
+			if (message.currentPlayer == playerNumber) {
+				// Update state
+				currentGameState = GameState.MY_TURN;
+				gameStateListView.getItems().add(opponentName + " dropped a token in column " + col);
+				gameStateListView.getItems().add("Your turn!");
+				setColumnButtonsEnabled(true);
+			} else {
+				gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
+			}
+		}
 	}
 
 	private void switchToScene(String sceneName) {
@@ -326,39 +431,94 @@ public class GuiClient extends Application{
 		return new Scene(mainMenuBox, 500, 500);
 	}
 
-	// TODO: Enhance this to be interactive
 	private Scene createGameScene() {
 		gameBoardLabel = new Label("Game against " + opponentName);
 		gameBoardLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		gameBoardGrid = new GridPane();
+		dropButtonGrid = new GridPane();
+
+		//create token drop buttons and save to columnButtons[] array
+		for (int col = 0; col < COLS; col++) {
+			// visuals
+			Button dropButton = new Button("↓");
+			Circle circle = new Circle(17);
+			dropButton.setShape(circle);
+			dropButton.setMinSize(34, 34);
+			dropButton.setMaxSize(34, 34);
+			StackPane stack = new StackPane(dropButton);
+			stack.setPrefSize(40, 40);
+
+			// actions
+			int currentCol = col;
+			dropButton.setOnAction(e -> {
+				makeMove(currentCol);
+			});
+
+			columnButtons[col] = dropButton; // add reference to array
+			dropButtonGrid.add(stack, col, 0);
+		}
+		// create gameboard grid circles and save to gameBoardDisplay array
 		for (int row = 0; row < ROWS; row++) {
 			for (int col = 0; col < COLS; col++) {
-				Button cell = new Button();
-				cell.setPrefSize(40, 40);
+				StackPane stack = new StackPane();
+				stack.setPrefSize(40, 40);
+				stack.setStyle("-fx-border-color: black; -fx-background-color: gray");
+				Circle circle = new Circle(40 / 2.5);
+				circle.setFill(Color.WHITE);
+				stack.getChildren().add(circle);
 
-				gameBoardGrid.add(cell, col, row);
+				gameBoardDisplay[row][col] = stack; // add reference to array
+				gameBoardGrid.add(stack, col, row);
 			}
 		}
 
 		gameStateListView = new ListView<>();
 		gameStateListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
-		gameBox = new VBox(10, gameBoardLabel, gameBoardGrid, gameStateListView);
+		gameBox = new VBox(10, gameBoardLabel, dropButtonGrid, gameBoardGrid, gameStateListView);
 		gameBox.setPadding(new Insets(20));
 
-		return new Scene(gameBox, 800, 800);
+		return new Scene(gameBox, 800, 700);
 	}
 
 	// Called when game state changes, updates based on gameboard passed
-	// in message from server. Also updates who turn it is.
+	// in message from server. Also updates whose turn it is.
 	private void updateGameBoardUI() {
 		// TODO: implement
+		// Add the correct color piece to the gameboard
+		for (int row = 0; row < ROWS; row++) {
+			for (int col = 0; col < COLS; col++) {
+				StackPane cell = gameBoardDisplay[row][col];
+				Circle circle = (Circle) cell.getChildren().get(0);
+
+				switch (gameBoard[row][col]) {
+					case 0:
+						circle.setFill(Color.WHITE);
+						break;
+					case 1:
+						circle.setFill(Color.RED); // Player 1 color
+						break;
+					case 2:
+						circle.setFill(Color.YELLOW); // Player 2 color
+						break;
+				}
+			}
+		}
 	}
 
 	private void makeMove(int column) {
 		// TODO: Implementing sending message back to server to update gameboard
 		//
+		gameStateListView.getItems().add("You dropped a token in column " + column+1);
+		currentGameState = GameState.OPPONENT_TURN;
+		setColumnButtonsEnabled(false);
+		Message moveMessage = new Message(MessageType.GAME_ACTION, username, "move", column);
+		clientConnection.send(moveMessage);
+//		gameStateListView.getItems().add("You dropped a token in column " + column+1);
+//		currentGameState = GameState.OPPONENT_TURN;
+		//setColumnButtonsEnabled(false);
+
 	}
 
 }
