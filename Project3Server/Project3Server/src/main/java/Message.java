@@ -49,6 +49,7 @@ public class Message implements Serializable {
         this.lastMoveColumn = column;
     }
 
+
     public String toString(){
         return message;
     }

@@ -484,23 +484,50 @@ public class Server{
 				statusMessage = "Player " + playerNumber + " dropped a token in column " + column;
 			}
 
+
+
 			// Prepare and send game state message
 			try {
-
-				Message gameStateMsg = new Message(
-						MessageType.GAME_ACTION,
-						"SERVER",
-						currentGame.player1Name,
-						currentGame.player2Name,
-						statusMessage,
-						currentGame.gameboard,
-						currentGame.currentPlayer == 1 ? 2 : 1
-				);
-				gameStateMsg.lastMoveColumn = column;
-
-				if(currentGame.player1.out != null) currentGame.player1.out.writeObject(gameStateMsg);
-				if(currentGame.player2.out != null) currentGame.player2.out.writeObject(gameStateMsg);
-
+				if (currentGame.winner != null) {
+					Message gameStateMsg = new Message(
+							MessageType.GAME_STATE,
+							"SERVER",
+							currentGame.player1Name,
+							currentGame.player2Name,
+							statusMessage,
+							currentGame.gameboard,
+							currentGame.currentPlayer
+					);
+					gameStateMsg.lastMoveColumn = column;
+					if(currentGame.player1.out != null) currentGame.player1.out.writeObject(gameStateMsg);
+					if(currentGame.player2.out != null) currentGame.player2.out.writeObject(gameStateMsg);
+				} else if (currentGame.winner != null && currentGame.winner.equals("DRAW")) {
+					Message gameStateMsg = new Message(
+							MessageType.GAME_STATE,
+							"SERVER",
+							currentGame.player1Name,
+							currentGame.player2Name,
+							statusMessage,
+							currentGame.gameboard,
+							currentGame.currentPlayer
+					);
+					gameStateMsg.lastMoveColumn = column;
+					if(currentGame.player1.out != null) currentGame.player1.out.writeObject(gameStateMsg);
+					if(currentGame.player2.out != null) currentGame.player2.out.writeObject(gameStateMsg);
+				} else {
+					Message gameStateMsg = new Message(
+							MessageType.GAME_ACTION,
+							"SERVER",
+							currentGame.player1Name,
+							currentGame.player2Name,
+							statusMessage,
+							currentGame.gameboard,
+							currentGame.currentPlayer
+					);
+					gameStateMsg.lastMoveColumn = column;
+					if(currentGame.player1.out != null) currentGame.player1.out.writeObject(gameStateMsg);
+					if(currentGame.player2.out != null) currentGame.player2.out.writeObject(gameStateMsg);
+				}
 			} catch (Exception e) {
 				System.err.println("Error updating game state: " + e.getMessage());
 			}

@@ -4,5 +4,6 @@ public enum GameState {
     GAME_STARTING,
     MY_TURN,
     OPPONENT_TURN,
-    GAME_OVER
+    GAME_OVER,
+    DRAW
 }

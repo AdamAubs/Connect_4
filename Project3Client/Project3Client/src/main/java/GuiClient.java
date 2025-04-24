@@ -222,12 +222,59 @@ public class GuiClient extends Application{
 			if (message.currentPlayer == playerNumber) {
 				currentGameState = GameState.MY_TURN;
 				gameStateListView.getItems().add("Your turn!");
+				gameStateListView.getItems().add("Player " + message.currentPlayer);
 				setColumnButtonsEnabled(true);
 			} else {
 				currentGameState = GameState.OPPONENT_TURN;
 				gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
 				setColumnButtonsEnabled(false);
 			}
+		} else if (message.message.equals("The game is a draw.")) {
+			currentGameState = GameState.DRAW;
+			// put pop up here
+		} else {
+			// somebody won
+			currentGameState = GameState.GAME_OVER;
+
+			System.out.println(message.currentPlayer);
+
+			if (message.currentPlayer == 1) {
+				// Make the final move
+				if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+					int col = message.lastMoveColumn;
+					// Simulate dropping the opponent's token
+					for (int row = ROWS - 1; row >= 0; row--) {
+						if (gameBoard[row][col] == 0) {
+							//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+							gameBoard[row][col] = 2;
+							break;
+						}
+					}
+				}
+
+				updateGameBoardUI();
+				gameStateListView.getItems().add("Player: " + message.player1username + " won!");
+				gameStateListView.getItems().add("Ending game");
+			} else {
+				// Make the final move
+				if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+					int col = message.lastMoveColumn;
+					// Simulate dropping the opponent's token
+					for (int row = ROWS - 1; row >= 0; row--) {
+						if (gameBoard[row][col] == 0) {
+							//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+							gameBoard[row][col] = 1;
+							break;
+						}
+					}
+				}
+
+				updateGameBoardUI();
+				gameStateListView.getItems().add("Player: " + message.player2username + " won!");
+				gameStateListView.getItems().add("Ending game");
+			}
+
+			// Send message back to server to end the game
 		}
 		// TODO: handle other game states
 	}
@@ -236,21 +283,39 @@ public class GuiClient extends Application{
 		if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
 			int col = message.lastMoveColumn;
 
+			System.out.println(message.currentPlayer);
 			// Simulate dropping the opponent's token
 			for (int row = ROWS - 1; row >= 0; row--) {
 				if (gameBoard[row][col] == 0) {
-					gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+					//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+					gameBoard[row][col] = message.currentPlayer;
 					break;
 				}
 			}
 
 			updateGameBoardUI();
+			//System.out.println(message.);
 
-			// Update state
-			currentGameState = GameState.MY_TURN;
-			gameStateListView.getItems().add(opponentName + " dropped a token in column " + col);
-			gameStateListView.getItems().add("Your turn!");
-			setColumnButtonsEnabled(true);
+			if (message.player1username != null && message.player2username != null) {
+				// Set player numbers
+				if (message.player1username.equals(this.username)) {
+					playerNumber = 1;
+					opponentName = message.player2username;
+				} else {
+					playerNumber = 2;
+					opponentName = message.player1username;
+				}
+			}
+
+			if (message.currentPlayer == playerNumber) {
+				// Update state
+				currentGameState = GameState.MY_TURN;
+				gameStateListView.getItems().add(opponentName + " dropped a token in column " + col);
+				gameStateListView.getItems().add("Your turn!");
+				setColumnButtonsEnabled(true);
+			} else {
+				gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
+			}
 		}
 	}
 
@@ -421,6 +486,7 @@ public class GuiClient extends Application{
 	// in message from server. Also updates whose turn it is.
 	private void updateGameBoardUI() {
 		// TODO: implement
+		// Add the correct color piece to the gameboard
 		for (int row = 0; row < ROWS; row++) {
 			for (int col = 0; col < COLS; col++) {
 				StackPane cell = gameBoardDisplay[row][col];
@@ -444,11 +510,15 @@ public class GuiClient extends Application{
 	private void makeMove(int column) {
 		// TODO: Implementing sending message back to server to update gameboard
 		//
-		Message moveMessage = new Message(MessageType.GAME_ACTION, username, "move", column);
-		clientConnection.send(moveMessage);
 		gameStateListView.getItems().add("You dropped a token in column " + column+1);
 		currentGameState = GameState.OPPONENT_TURN;
 		setColumnButtonsEnabled(false);
+		Message moveMessage = new Message(MessageType.GAME_ACTION, username, "move", column);
+		clientConnection.send(moveMessage);
+//		gameStateListView.getItems().add("You dropped a token in column " + column+1);
+//		currentGameState = GameState.OPPONENT_TURN;
+		//setColumnButtonsEnabled(false);
+
 	}
 
 }
