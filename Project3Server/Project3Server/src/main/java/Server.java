@@ -319,7 +319,7 @@ public class Server{
 							case DISCONNECTED:
 								// TODO: implement handleDisconnected(clientMessage)
 							case TEXT:
-								// TODO: implement handleTextMessages(clientMessage)
+								handleTextMessage(clientMessage);
 						}
 
 					} catch(Exception e) {
@@ -447,6 +447,23 @@ public class Server{
 
 		}
 
+		private void handleTextMessage(Message textMsg) {
+			if (currentGame == null) return;
+
+			String activePlayer = textMsg.sender;
+			int playerNumber = currentGame.player1Name.equals(activePlayer) ? 1 : 2;
+
+			try {
+				if (playerNumber == 1) {
+					currentGame.player2.out.writeObject(textMsg);
+				} else {
+					currentGame.player1.out.writeObject(textMsg);
+				}
+			} catch (Exception e) {
+				System.err.println("Error updating text message: " + e.getMessage());
+			}
+		}
+
 		private void handleGameAction(Message gameActionMsg) {
 			if (currentGame == null) return;
 
@@ -483,7 +500,6 @@ public class Server{
 			} else {
 				statusMessage = "Player " + playerNumber + " dropped a token in column " + column;
 			}
-
 
 			// Prepare and send game state message
 			try {

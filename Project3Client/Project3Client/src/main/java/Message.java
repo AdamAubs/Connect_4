@@ -26,8 +26,6 @@ public class Message implements Serializable {
         this.message = message;
     }
 
-    // TODO: might need to add more constructors to send GAME_ACTION messages or other types
-
     // message for game action
     public Message(MessageType type, String sender, String message, int column) {
         this.type = type;

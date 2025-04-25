@@ -69,8 +69,11 @@ public class GuiClient extends Application{
 	GridPane dropButtonGrid;
 	VBox gameBox;
 
-	// Winner pop up
-
+	// Message box
+	Label messageBoxLabel;
+	ListView<String> messageBoxListView;
+	VBox messageBox;
+	TextField inputField;
 
 	private GameState currentGameState = GameState.NOT_IN_GAME;
 	private int playerNumber;
@@ -493,13 +496,52 @@ public class GuiClient extends Application{
 			}
 		}
 
+		// Chat box
+//		Label messageBoxLabel;
+//		ListView<String> messageBoxListView;
+//		VBox messageBox;
+		messageBoxLabel = new Label("Chat Box");
+		messageBoxLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		messageListView = new ListView<>();
+		messageListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		inputField = new TextField();
+		inputField.setPromptText("Type a message...");
+		inputField.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		inputField.setPrefWidth(300);
+
+		sendButton = new Button("Send");
+		sendButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		// Sends a message when clicking send button
+		sendButton.setOnAction(e -> {
+			String message = inputField.getText().trim();
+			if (!message.isEmpty()) {
+				messageListView.getItems().add("You: " + message);
+				sendTextMessage(message);
+				inputField.clear(); // clear after sending
+			}
+		});
+
+		// Sends a message when pressing ENTER key
+		inputField.setOnAction(e -> sendButton.fire());
+
+		HBox inputArea = new HBox(10, inputField, sendButton);
+		messageBox = new VBox(10, messageBoxLabel, messageListView, inputArea);
+
 		gameStateListView = new ListView<>();
 		gameStateListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		gameBox = new VBox(10, gameBoardLabel, dropButtonGrid, gameBoardGrid, gameStateListView);
 		gameBox.setPadding(new Insets(20));
 
-		return new Scene(gameBox, 800, 700);
+		HBox gameDisplay = new HBox(10, gameBox, messageBox);
+		return new Scene(gameDisplay, 800, 700);
+	}
+
+	private void sendTextMessage(String message) {
+		Message textMessage = new Message(MessageType.TEXT, username, message);
+		clientConnection.send(textMessage);
 	}
 
 	// Called when game state changes, updates based on gameboard passed
