@@ -5,6 +5,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.function.Consumer;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 import javafx.application.Platform;
 import javafx.scene.control.ListView;
@@ -15,6 +17,9 @@ public class Server{
 	int count = 1;
 	// Stores connected clients
 	ArrayList<ClientThread> clients = new ArrayList<ClientThread>();
+
+	// Stores disconnected clients
+	ArrayList<ClientThread> offlineClients = new ArrayList<>();
 
 	// Stores logged in users
 	HashMap<String, ClientThread> userMap = new HashMap<>(); // Maps username to client thread
@@ -96,6 +101,7 @@ public class Server{
 			winner = null;
 
 		}
+
 
 		// Takes an int representing column and player (1: player1, 2: player2) and
 		// sets lowest available space in col and returns row
@@ -263,6 +269,8 @@ public class Server{
 		ObjectInputStream in;
 		ObjectOutputStream out;
 		String username = null;
+		String timeloggedIn = null;
+		String timeloggedOut = null;
 		GameSession currentGame = null;
 
 		// Client constructor gets passed
@@ -328,6 +336,8 @@ public class Server{
 
 					} catch(Exception e) {
 						serverConnectionCallback.accept(new Message("OOOOPPs...Something wrong with the socket from client: " + count + "....closing down!"));
+						handleDisconnect();
+						offlineClients.add(this);
 						clients.remove(this);
 
 						break;
@@ -363,25 +373,64 @@ public class Server{
 					Message response = new Message(MessageType.LOGIN, "SERVER", "success");
 					out.writeObject(response);
 
+					// Record their login time
+					DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+					this.timeloggedIn = LocalTime.now().format(timeFormatter);
+
 					for (Map.Entry<String, ClientThread> t : userMap.entrySet()) {
 						try {
 							if (this != t.getValue()) {
 								// Update its own online users list with users already connected
-								Message alreadyOnlineUsers = new Message(MessageType.ALREADYONLINE, "SERVER", "User: " + t.getValue().username + " is online");
+								Message alreadyOnlineUsers = new Message(MessageType.ALREADYONLINE, "SERVER",  "User: " + t.getValue().username + " got online at " + t.getValue().timeloggedIn);
 								out.writeObject(alreadyOnlineUsers);
 
 								// Update all other clients online users list that this user is online
-								Message newOnlineUser = new Message(MessageType.NEWONLINE, "SERVER", "User: " + username + " is online");
+								Message newOnlineUser = new Message(MessageType.NEWONLINE, "SERVER", "User: " + username + " got online at " + t.getValue().timeloggedIn);
 								t.getValue().out.writeObject(newOnlineUser);
 							}
 						} catch (Exception e) {
 							System.err.println("Failed to update users with a new online user");
 						}
 					}
+
+					for (ClientThread offlineClient : offlineClients) {
+						try {
+							// Update its own offline users list with users already disconnected clients
+							Message alreadyOfflineUsers = new Message(MessageType.DISCONNECTED, "SERVER",  "User: " + offlineClient.username + " got offline at " + offlineClient.timeloggedOut);
+							out.writeObject(alreadyOfflineUsers);
+						} catch (Exception e) {
+							System.err.println("Failed to update users with an offline users");
+						}
+					}
 				} catch (Exception e) {
 					System.out.println("Error handling login: " + e.getMessage());
 				}
 			}
+		}
+
+		private void handleDisconnect() {
+			// Update all client's online lists to say the user is offline
+			try {
+				// Record the time this user disconencted
+				DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+				this.timeloggedOut = LocalTime.now().format(timeFormatter);
+
+				for (Map.Entry<String, ClientThread> t : userMap.entrySet()) {
+					try {
+						if (this != t.getValue()) {
+							// Update all other clients online users list that this user is now offline
+							Message newOfflineUser = new Message(MessageType.DISCONNECTED, "SERVER",   "User: " + username + " got offline at " + this.timeloggedOut);
+							t.getValue().out.writeObject(newOfflineUser);
+						}
+					} catch (Exception e) {
+						System.err.println("Failed to update users with a new online user");
+					}
+				}
+			} catch (Exception e) {
+				System.out.println("Error handling login: " + e.getMessage());
+			}
+
+			// Update the server's GUI to show that the user has logged out
 		}
 
 		// Adds player who clicks "join button" first to waiting queue.
