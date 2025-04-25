@@ -53,6 +53,7 @@ public class GuiClient extends Application{
 	Button joinGameButton;
 	Button logoutButton;
 	ListView<String> onlineUsersListView;
+	ListView<String> offlineUsersListView;
 
 	// Waiting List View
 	ListView<String> waitingListView;
@@ -185,7 +186,12 @@ public class GuiClient extends Application{
 						handleGameActionMessage(message);
 						break;
 					case DISCONNECTED:
-						// TODO: handleDisconnect(message)
+						if (message.message != null) {
+							System.out.println(message.message);
+							offlineUsersListView.getItems().add(message.message);
+						} else {
+							System.out.println("Unable to add already offline user to users to List view");
+						}
 						break;
 					default:
 						System.out.println("Unhandled message type: " + message.type);
@@ -238,14 +244,30 @@ public class GuiClient extends Application{
 			}
 		} else if (message.message.equals("The game is a draw.")) {
 			currentGameState = GameState.DRAW;
-			// put pop up here
+			if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+				int col = message.lastMoveColumn;
+				// Simulate dropping the opponent's token
+				for (int row = ROWS - 1; row >= 0; row--) {
+					if (gameBoard[row][col] == 0) {
+						if (message.currentPlayer == 1) {
+							gameBoard[row][col] = 2;
+						} else {
+							gameBoard[row][col] = 1;
+						}
+						break;
+					}
+				}
+			}
+
+			showGameResultPopup("Draw", "It's a draw!");
+
+			gameStateListView.getItems().add("It's a draw!");
+			gameStateListView.getItems().add("Ending game");
 		} else {
 			// somebody won
 			currentGameState = GameState.GAME_OVER;
 
-			gameDisplay = new StackPane();
 			String winner = "";
-
 			// Make the final move
 			if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
 				int col = message.lastMoveColumn;
@@ -392,11 +414,24 @@ public class GuiClient extends Application{
 	}
 
 	private Scene createMainMenuScene() {
-		logoutButton = new Button("Logout");
-		logoutButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		Label mainMenuLabel = new Label("Main Menu - Welcome " + this.username);
+		mainMenuLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		Label onlineLabel = new Label("Online Users:");
+		onlineLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		onlineUsersListView = new ListView<>();
 		onlineUsersListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		Label offlineLabel = new Label("Offline Users:");
+		offlineLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		offlineUsersListView = new ListView<>();
+		offlineUsersListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		VBox onlineBox = new VBox(10, onlineLabel, onlineUsersListView);
+		VBox offlineBox = new VBox(10, offlineLabel, offlineUsersListView);
+		HBox connectionStatusBox = new HBox(10, onlineBox, offlineBox);
 
 		joinGameButton = new Button("Join Button");
 		joinGameButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
@@ -408,34 +443,17 @@ public class GuiClient extends Application{
 			clientConnection.send(joinGameMsg);
 		});
 
-		Label usersLabel = new Label("Online Users:");
-		usersLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-
-		Label mainMenuLabel = new Label("Main Menu - Welcome " + this.username);
-		mainMenuLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		logoutButton = new Button("Logout");
+		logoutButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		HBox buttonBox = new HBox(10, joinGameButton, logoutButton);
-
-		Label chatLabel = new Label("Chat: ");
-		chatLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-
-		TextField messageField = new TextField();
-
-		Button sendMessageToAllClientsBtn = new Button("Send to All Clients");
-		sendMessageToAllClientsBtn.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-
-		HBox messageSendBox = new HBox( 10, messageField, sendMessageToAllClientsBtn);
 
 		VBox mainMenuBox = new VBox(10);
 		mainMenuBox.setPadding(new Insets(20));
 		mainMenuBox.getChildren().addAll(
 				mainMenuLabel,
-				usersLabel,
-				onlineUsersListView,
-				buttonBox,
-				chatLabel,
-				messageListView,
-				messageSendBox
+				connectionStatusBox,
+				buttonBox
 		);
 
 		return new Scene(mainMenuBox, 500, 500);
