@@ -53,6 +53,7 @@ public class GuiClient extends Application{
 	Button joinGameButton;
 	Button logoutButton;
 	ListView<String> onlineUsersListView;
+	ListView<String> offlineUsersListView;
 
 	// Waiting List View
 	ListView<String> waitingListView;
@@ -60,11 +61,20 @@ public class GuiClient extends Application{
 	// Game State View
 	ListView<String> gameStateListView;
 
-	// Game scene
+	// Game winner/loser pop up display
+	StackPane gameDisplay;
+
+	// Gameboard
 	Label gameBoardLabel;
 	GridPane gameBoardGrid;
 	GridPane dropButtonGrid;
 	VBox gameBox;
+
+	// Message box
+	Label messageBoxLabel;
+	ListView<String> messageBoxListView;
+	VBox messageBox;
+	TextField inputField;
 
 	private GameState currentGameState = GameState.NOT_IN_GAME;
 	private int playerNumber;
@@ -176,7 +186,12 @@ public class GuiClient extends Application{
 						handleGameActionMessage(message);
 						break;
 					case DISCONNECTED:
-						// TODO: handleDisconnect(message)
+						if (message.message != null) {
+							System.out.println(message.message);
+							offlineUsersListView.getItems().add(message.message);
+						} else {
+							System.out.println("Unable to add already offline user to users to List view");
+						}
 						break;
 					default:
 						System.out.println("Unhandled message type: " + message.type);
@@ -208,8 +223,6 @@ public class GuiClient extends Application{
 			}
 		}
 
-		// Handle different game states
-
 		// starting game state, sets up board
 		if (message.message.equals("Starting game")) {
 			currentGameState = GameState.GAME_STARTING;
@@ -231,52 +244,84 @@ public class GuiClient extends Application{
 			}
 		} else if (message.message.equals("The game is a draw.")) {
 			currentGameState = GameState.DRAW;
-			// put pop up here
+			if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+				int col = message.lastMoveColumn;
+				// Simulate dropping the opponent's token
+				for (int row = ROWS - 1; row >= 0; row--) {
+					if (gameBoard[row][col] == 0) {
+						if (message.currentPlayer == 1) {
+							gameBoard[row][col] = 2;
+						} else {
+							gameBoard[row][col] = 1;
+						}
+						break;
+					}
+				}
+			}
+
+			showGameResultPopup("Draw", "It's a draw!");
+
+			gameStateListView.getItems().add("It's a draw!");
+			gameStateListView.getItems().add("Ending game");
 		} else {
 			// somebody won
 			currentGameState = GameState.GAME_OVER;
 
-			System.out.println(message.currentPlayer);
-
-			if (message.currentPlayer == 1) {
-				// Make the final move
-				if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
-					int col = message.lastMoveColumn;
-					// Simulate dropping the opponent's token
-					for (int row = ROWS - 1; row >= 0; row--) {
-						if (gameBoard[row][col] == 0) {
-							//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+			String winner = "";
+			// Make the final move
+			if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
+				int col = message.lastMoveColumn;
+				// Simulate dropping the opponent's token
+				for (int row = ROWS - 1; row >= 0; row--) {
+					if (gameBoard[row][col] == 0) {
+						if (message.currentPlayer == 1) {
 							gameBoard[row][col] = 2;
-							break;
-						}
-					}
-				}
-
-				updateGameBoardUI();
-				gameStateListView.getItems().add("Player: " + message.player1username + " won!");
-				gameStateListView.getItems().add("Ending game");
-			} else {
-				// Make the final move
-				if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
-					int col = message.lastMoveColumn;
-					// Simulate dropping the opponent's token
-					for (int row = ROWS - 1; row >= 0; row--) {
-						if (gameBoard[row][col] == 0) {
-							//gameBoard[row][col] = (message.sender.equals(opponentName)) ? (3 - playerNumber) : playerNumber;
+							winner = message.player1username;
+						} else {
 							gameBoard[row][col] = 1;
-							break;
+							winner = message.player2username;
 						}
+						break;
 					}
 				}
-
-				updateGameBoardUI();
-				gameStateListView.getItems().add("Player: " + message.player2username + " won!");
-				gameStateListView.getItems().add("Ending game");
 			}
+			updateGameBoardUI();
+
+			String resultMessage = winner.equals(username) ? "You won!" : "You lost!";
+			showGameResultPopup("Game over", resultMessage);
+
+			gameStateListView.getItems().add("Player: " + winner + " won!");
+			gameStateListView.getItems().add("Ending game");
 
 			// Send message back to server to end the game
 		}
-		// TODO: handle other game states
+	}
+
+	private void showGameResultPopup(String title, String message) {
+		Stage popupStage = new Stage();
+		popupStage.setTitle(title);
+
+		Label messageLabel = new Label(message);
+		messageLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		messageLabel.setTextFill(Color.BLACK);
+
+		Button rematchButton = new Button("Rematch");
+		rematchButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		rematchButton.setOnAction(e -> popupStage.close());
+
+		Button mainMenuButton = new Button("Main Menu");
+		mainMenuButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		mainMenuButton.setOnAction(e -> popupStage.close());
+
+		VBox layout = new VBox(10);
+		layout.setPadding(new Insets(20));
+		layout.getChildren().addAll(messageLabel, rematchButton, mainMenuButton);
+		layout.setStyle("-fx-background-color: white; -fx-alignment: center;");
+
+		Scene scene = new Scene(layout, 300, 150);
+		popupStage.setScene(scene);
+		popupStage.setAlwaysOnTop(true);
+		popupStage.showAndWait();
 	}
 
 	private void handleGameActionMessage(Message message) {
@@ -294,8 +339,8 @@ public class GuiClient extends Application{
 			}
 
 			updateGameBoardUI();
-			//System.out.println(message.);
 
+			// Get the player who sent the message
 			if (message.player1username != null && message.player2username != null) {
 				// Set player numbers
 				if (message.player1username.equals(this.username)) {
@@ -308,7 +353,7 @@ public class GuiClient extends Application{
 			}
 
 			if (message.currentPlayer == playerNumber) {
-				// Update state
+				// Update gameboard
 				currentGameState = GameState.MY_TURN;
 				gameStateListView.getItems().add(opponentName + " dropped a token in column " + col);
 				gameStateListView.getItems().add("Your turn!");
@@ -369,11 +414,24 @@ public class GuiClient extends Application{
 	}
 
 	private Scene createMainMenuScene() {
-		logoutButton = new Button("Logout");
-		logoutButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		Label mainMenuLabel = new Label("Main Menu - Welcome " + this.username);
+		mainMenuLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		Label onlineLabel = new Label("Online Users:");
+		onlineLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		onlineUsersListView = new ListView<>();
 		onlineUsersListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		Label offlineLabel = new Label("Offline Users:");
+		offlineLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		offlineUsersListView = new ListView<>();
+		offlineUsersListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		VBox onlineBox = new VBox(10, onlineLabel, onlineUsersListView);
+		VBox offlineBox = new VBox(10, offlineLabel, offlineUsersListView);
+		HBox connectionStatusBox = new HBox(10, onlineBox, offlineBox);
 
 		joinGameButton = new Button("Join Button");
 		joinGameButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
@@ -385,34 +443,17 @@ public class GuiClient extends Application{
 			clientConnection.send(joinGameMsg);
 		});
 
-		Label usersLabel = new Label("Online Users:");
-		usersLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-
-		Label mainMenuLabel = new Label("Main Menu - Welcome " + this.username);
-		mainMenuLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		logoutButton = new Button("Logout");
+		logoutButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		HBox buttonBox = new HBox(10, joinGameButton, logoutButton);
-
-		Label chatLabel = new Label("Chat: ");
-		chatLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-
-		TextField messageField = new TextField();
-
-		Button sendMessageToAllClientsBtn = new Button("Send to All Clients");
-		sendMessageToAllClientsBtn.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-
-		HBox messageSendBox = new HBox( 10, messageField, sendMessageToAllClientsBtn);
 
 		VBox mainMenuBox = new VBox(10);
 		mainMenuBox.setPadding(new Insets(20));
 		mainMenuBox.getChildren().addAll(
 				mainMenuLabel,
-				usersLabel,
-				onlineUsersListView,
-				buttonBox,
-				chatLabel,
-				messageListView,
-				messageSendBox
+				connectionStatusBox,
+				buttonBox
 		);
 
 		return new Scene(mainMenuBox, 500, 500);
@@ -473,13 +514,52 @@ public class GuiClient extends Application{
 			}
 		}
 
+		// Chat box
+//		Label messageBoxLabel;
+//		ListView<String> messageBoxListView;
+//		VBox messageBox;
+		messageBoxLabel = new Label("Chat Box");
+		messageBoxLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		messageListView = new ListView<>();
+		messageListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		inputField = new TextField();
+		inputField.setPromptText("Type a message...");
+		inputField.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		inputField.setPrefWidth(300);
+
+		sendButton = new Button("Send");
+		sendButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		// Sends a message when clicking send button
+		sendButton.setOnAction(e -> {
+			String message = inputField.getText().trim();
+			if (!message.isEmpty()) {
+				messageListView.getItems().add("You: " + message);
+				sendTextMessage(message);
+				inputField.clear(); // clear after sending
+			}
+		});
+
+		// Sends a message when pressing ENTER key
+		inputField.setOnAction(e -> sendButton.fire());
+
+		HBox inputArea = new HBox(10, inputField, sendButton);
+		messageBox = new VBox(10, messageBoxLabel, messageListView, inputArea);
+
 		gameStateListView = new ListView<>();
 		gameStateListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		gameBox = new VBox(10, gameBoardLabel, dropButtonGrid, gameBoardGrid, gameStateListView);
 		gameBox.setPadding(new Insets(20));
 
-		return new Scene(gameBox, 800, 700);
+		HBox gameDisplay = new HBox(10, gameBox, messageBox);
+		return new Scene(gameDisplay, 800, 700);
+	}
+
+	private void sendTextMessage(String message) {
+		Message textMessage = new Message(MessageType.TEXT, username, message);
+		clientConnection.send(textMessage);
 	}
 
 	// Called when game state changes, updates based on gameboard passed
@@ -508,17 +588,11 @@ public class GuiClient extends Application{
 	}
 
 	private void makeMove(int column) {
-		// TODO: Implementing sending message back to server to update gameboard
-		//
 		gameStateListView.getItems().add("You dropped a token in column " + column+1);
 		currentGameState = GameState.OPPONENT_TURN;
 		setColumnButtonsEnabled(false);
 		Message moveMessage = new Message(MessageType.GAME_ACTION, username, "move", column);
 		clientConnection.send(moveMessage);
-//		gameStateListView.getItems().add("You dropped a token in column " + column+1);
-//		currentGameState = GameState.OPPONENT_TURN;
-		//setColumnButtonsEnabled(false);
-
 	}
 
 }
