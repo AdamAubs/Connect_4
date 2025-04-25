@@ -1,0 +1,12 @@
+# Ignore compiled Java class files
+*.class
+
+# Ignore log files
+*.log
+
+# Ignore the target folder (for Maven/Gradle projects)
+/target/
+
+# Ignore OS generated files (like thumbs.db on Windows)
+.DS_Store
+Thumbs.db
