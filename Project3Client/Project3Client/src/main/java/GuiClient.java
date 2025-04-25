@@ -11,11 +11,11 @@ import javafx.application.Platform;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.scene.control.*;
+
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
-
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -180,12 +180,14 @@ public class GuiClient extends Application{
 						handleGameStateMessage(message);
 						break;
 					case GAME_ACTION:
-						// TODO: handleGameAction(message)
 						// reflect opponents move on client scene
 						handleGameActionMessage(message);
 						break;
 					case DISCONNECTED:
 						// TODO: handleDisconnect(message)
+						break;
+					case QUIT_GAME:
+						handleQuitMessage(message);
 						break;
 					default:
 						System.out.println("Unhandled message type: " + message.type);
@@ -198,7 +200,6 @@ public class GuiClient extends Application{
 	}
 
 	// Takes in a message that contains the state of the gameboard
-	// TODO: finish handling game states
 	private void handleGameStateMessage(Message message) {
 
 		// Update clients game board
@@ -285,7 +286,10 @@ public class GuiClient extends Application{
 
 		Button rematchButton = new Button("Rematch");
 		rematchButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-		rematchButton.setOnAction(e -> popupStage.close());
+		rematchButton.setOnAction(e -> {
+
+			popupStage.close();
+		});
 
 		Button mainMenuButton = new Button("Main Menu");
 		mainMenuButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
@@ -300,6 +304,9 @@ public class GuiClient extends Application{
 		popupStage.setScene(scene);
 		popupStage.setAlwaysOnTop(true);
 		popupStage.showAndWait();
+
+		resetGameBoard();
+
 	}
 
 	private void handleGameActionMessage(Message message) {
@@ -342,6 +349,15 @@ public class GuiClient extends Application{
 		}
 	}
 
+	private void handleQuitMessage(Message message) {
+		Alert alert = new Alert(Alert.AlertType.INFORMATION);
+		alert.setTitle("Quit");
+		alert.setContentText(message.message);
+		alert.showAndWait();
+		switchToScene("mainMenu");
+		resetGameBoard();
+	}
+
 	private void switchToScene(String sceneName) {
 		primaryStage.setScene(sceneMap.get(sceneName));
 
@@ -352,6 +368,8 @@ public class GuiClient extends Application{
 			case "mainMenu":
 				primaryStage.setTitle("Client - Main Menu");
 				break;
+			case "waiting":
+				primaryStage.setTitle("Client - Waiting");
 		}
 	}
 
@@ -360,6 +378,8 @@ public class GuiClient extends Application{
 		usernameField.setPromptText("Enter username");
 
 		loginButton = new Button("Login");
+		// make button click when user presses ENTER
+		loginButton.setDefaultButton(true);
 		loginButton.setOnAction(e -> {
 			username = usernameField.getText();
 			if (username != null && !username.trim().isEmpty()) {
@@ -444,11 +464,18 @@ public class GuiClient extends Application{
 	private Scene createWaitingScene() {
 		waitingListView = new ListView<>();
 		waitingListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		// main menu button
+		Button mainMenuButton = new Button("Main Menu");
+		mainMenuButton.setOnAction(e -> {
+			Message leaveMsg = new Message(MessageType.LEAVE_QUEUE, username);
+			clientConnection.send(leaveMsg);
+			switchToScene("mainMenu");
+		});
 
 		VBox mainMenuBox = new VBox(10);
 		mainMenuBox.setPadding(new Insets(20));
 		mainMenuBox.getChildren().addAll(
-			waitingListView
+			waitingListView, mainMenuButton
 		);
 
 		return new Scene(mainMenuBox, 500, 500);
@@ -526,8 +553,17 @@ public class GuiClient extends Application{
 		// Sends a message when pressing ENTER key
 		inputField.setOnAction(e -> sendButton.fire());
 
+		// quit game button
+		Button quitGameButton = new Button("Quit Game");
+		quitGameButton.setOnAction(e -> {
+			Message quitMsg = new Message(MessageType.QUIT_GAME, username);
+			clientConnection.send(quitMsg);
+			switchToScene("mainMenu");
+			resetGameBoard();
+		});
+
 		HBox inputArea = new HBox(10, inputField, sendButton);
-		messageBox = new VBox(10, messageBoxLabel, messageListView, inputArea);
+		messageBox = new VBox(10, messageBoxLabel, messageListView, inputArea, quitGameButton);
 
 		gameStateListView = new ListView<>();
 		gameStateListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
@@ -547,7 +583,6 @@ public class GuiClient extends Application{
 	// Called when game state changes, updates based on gameboard passed
 	// in message from server. Also updates whose turn it is.
 	private void updateGameBoardUI() {
-		// TODO: implement
 		// Add the correct color piece to the gameboard
 		for (int row = 0; row < ROWS; row++) {
 			for (int col = 0; col < COLS; col++) {
@@ -569,8 +604,18 @@ public class GuiClient extends Application{
 		}
 	}
 
+	// reset game board by changing all cells to 0 and updating UI
+	private void resetGameBoard() {
+		for (int row = 0; row < ROWS; row++) {
+			for (int col = 0; col < COLS; col++) {
+				gameBoard[row][col] = 0;
+			}
+		}
+		updateGameBoardUI();
+	}
+
 	private void makeMove(int column) {
-		gameStateListView.getItems().add("You dropped a token in column " + column+1);
+		gameStateListView.getItems().add("You dropped a token in column " + column);
 		currentGameState = GameState.OPPONENT_TURN;
 		setColumnButtonsEnabled(false);
 		Message moveMessage = new Message(MessageType.GAME_ACTION, username, "move", column);
