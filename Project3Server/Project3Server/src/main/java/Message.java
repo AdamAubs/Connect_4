@@ -14,16 +14,19 @@ public class Message implements Serializable {
     int[][] gameBoard;
     int lastMoveColumn;
 
+    // text message
     public Message(String input){
         message = input;
         type = MessageType.TEXT;
     }
 
+    // message with clientID
     public Message(MessageType type, int count) {
         this.type = type;
         this.clientId = count;
     }
 
+    // generic message
     public Message(MessageType type, String sender, String message) {
         this.type = type;
         this.sender = sender;
@@ -41,7 +44,7 @@ public class Message implements Serializable {
         this.currentPlayer = currentPlayer;
     }
 
-    // message for game action
+    // message for token drop
     public Message(MessageType type, String sender, String message, int column) {
         this.type = type;
         this.sender = sender;
@@ -49,6 +52,11 @@ public class Message implements Serializable {
         this.lastMoveColumn = column;
     }
 
+    // message for leaving queue or quitting game
+    public Message(MessageType type, String sender) {
+        this.type = type;
+        this.sender = sender;
+    }
 
     public String toString(){
         return message;

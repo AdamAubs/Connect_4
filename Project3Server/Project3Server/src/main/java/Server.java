@@ -62,7 +62,6 @@ public class Server{
 		}
 	}
 
-	// TODO: finish implementing logic for game session on the server
 	class GameSession {
 		ClientThread player1;
 		ClientThread player2;
@@ -96,10 +95,7 @@ public class Server{
 			gameOver = false;
 			winner = null;
 
-
 		}
-
-		// TODO: Add methods for making moves, checking for wins, etc.
 
 		// Takes an int representing column and player (1: player1, 2: player2) and
 		// sets lowest available space in col and returns row
@@ -316,10 +312,18 @@ public class Server{
 								// TODO: implement handleGameState(clientMessage)
 							case GAME_ACTION:
 								handleGameAction(clientMessage);
+								break;
 							case DISCONNECTED:
 								// TODO: implement handleDisconnected(clientMessage)
 							case TEXT:
 								handleTextMessage(clientMessage);
+								break;
+							case LEAVE_QUEUE:
+								handleLeaveQueue(clientMessage);
+								break;
+							case QUIT_GAME:
+								handleQuitGame(clientMessage);
+								break;
 						}
 
 					} catch(Exception e) {
@@ -392,7 +396,7 @@ public class Server{
 
 				try {
 					System.out.println("Player " + username + " joined the waiting queue");
-					Message waitingMsg = new Message(MessageType.WAITING, "SERVER", "Waiting for an opponent to join. Players in queue: " + waitingQueue.size());
+					Message waitingMsg = new Message(MessageType.WAITING, "SERVER", "Waiting for an opponent to join.");
 					out.writeObject(waitingMsg);
 
 					// If we have 2 players, create a game session
@@ -546,6 +550,46 @@ public class Server{
 			} catch (Exception e) {
 				System.err.println("Error updating game state: " + e.getMessage());
 			}
+
+		}
+
+		private void handleLeaveQueue(Message leaveMsg) {
+			synchronized(waitingQueue){
+				if (waitingQueue.contains(leaveMsg.sender)) {
+					waitingQueue.remove(leaveMsg.sender);
+					System.out.println("Player " + leaveMsg.sender + " left the waiting queue.");
+				} else {
+					System.out.println("Player " + username + " attempted to leave queue, but wasn't in it.");
+				}
+			}
+		}
+
+		private void handleQuitGame(Message quitMsg) {
+			// get username of player who quit
+			String quitter = quitMsg.sender;
+			// get GameSession object of player who quit
+			GameSession game = playerToSession.get(quitter);
+			if (game == null) return;
+			// get thread of quitter's opponent
+			ClientThread opponent = game.player1Name.equals(quitter) ? game.player2 : game.player1;
+			// notify opponent the player has quit
+			try {
+				Message notifyOpponent = new Message(MessageType.QUIT_GAME, "SERVER", "Opponent has quit. You win! \n Returning to main menu.");
+				opponent.out.writeObject(notifyOpponent);
+			} catch (Exception e) {
+				System.err.println("Failed to notify opponent about quit.");
+			}
+			// remove game from active sessions
+			activeSessions.remove(game);
+			// remove players from session map
+			playerToSession.remove(game.player1Name);
+			playerToSession.remove(game.player2Name);
+			// set GameSession object's game to null
+			game.player1.currentGame = null;
+			game.player2.currentGame = null;
+
+			// notify server GUI
+			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", quitter + " has quit the game."));
 
 		}
 
