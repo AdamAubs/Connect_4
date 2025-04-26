@@ -321,8 +321,6 @@ public class Server{
 							case GAME_ACTION:
 								handleGameAction(clientMessage);
 								break;
-							case DISCONNECTED:
-								// TODO: implement handleDisconnected(clientMessage)
 							case TEXT:
 								handleTextMessage(clientMessage);
 								break;
@@ -344,11 +342,13 @@ public class Server{
 						}
 
 					} catch(Exception e) {
+						serverConnectionCallback.accept(new Message(MessageType.DISCONNECTED, count, username));
 						serverConnectionCallback.accept(new Message("OOOOPPs...Something wrong with the socket from client: " + count + "....closing down!"));
 						handleDisconnect();
 						offlineClients.add(this);
 						clients.remove(this);
-
+						activeSessions.remove(playerToSession.get((username)));
+						userMap.remove(username);
 						break;
 					}
 			 }
@@ -456,6 +456,7 @@ public class Server{
 					System.out.println("Player " + username + " joined the waiting queue");
 					Message waitingMsg = new Message(MessageType.WAITING, "SERVER", "Waiting for an opponent to join.");
 					out.writeObject(waitingMsg);
+					serverConnectionCallback.accept(new Message(MessageType.WAITING, joinGameMsg.sender));
 
 					// If we have 2 players, create a game session
 					if (waitingQueue.size() >= 2) {
@@ -484,7 +485,7 @@ public class Server{
 
 							// Notify server UI
 							Message newGameSessionMsg = new Message(MessageType.NEWGAMESESSION, "SERVER",
-									"New game started between " + player1username + " and " + player2username);
+									"Game between " + player1username + " and " + player2username);
 							serverConnectionCallback.accept(newGameSessionMsg);
 
 							// Notify both players
@@ -693,6 +694,7 @@ public class Server{
 			if (userMap.containsKey(logoutMsg.sender)) {
 				userMap.remove(logoutMsg.sender);
 			}
+			serverConnectionCallback.accept(new Message(MessageType.LOGOUT, logoutMsg.sender));
 			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", logoutMsg.sender + " has logged out."));
 		}
 

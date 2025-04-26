@@ -190,6 +190,8 @@ public class GuiClient extends Application{
 						if (message.message != null) {
 							System.out.println(message.message);
 							offlineUsersListView.getItems().add(message.message);
+							// TODO trying to get QUIT_GAME working with disconnect...
+//							clientConnection.send(message);
 						} else {
 							System.out.println("Unable to add already offline user to users to List view");
 						}

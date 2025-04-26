@@ -26,6 +26,13 @@ public class Message implements Serializable {
         this.clientId = count;
     }
 
+    // message with clientID and username
+    public Message(MessageType type, int count, String sender) {
+        this.type = type;
+        this.clientId = count;
+        this.sender = sender;
+    }
+
     // generic message
     public Message(MessageType type, String sender, String message) {
         this.type = type;

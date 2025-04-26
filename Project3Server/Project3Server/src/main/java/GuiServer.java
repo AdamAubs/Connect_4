@@ -4,6 +4,8 @@ import java.util.HashMap;
 import javafx.application.Application;
 
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -31,6 +33,7 @@ public class GuiServer extends Application{
 	// Connected Clients List
 	ListView<String> connectedClientsList;
 	ListView<String> loggedInUsersList;
+	ObservableList<String> loggedInUsers = FXCollections.observableArrayList();
 	ListView<String> messageList;
 	ListView<String> gameSessionList;
 
@@ -50,6 +53,7 @@ public class GuiServer extends Application{
 		messageList = new ListView<>();
 		messageList.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 		loggedInUsersList = new ListView<>();
+		loggedInUsersList.setItems(loggedInUsers);
 		loggedInUsersList.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 		connectedClientsList = new ListView<>();
 		connectedClientsList.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
@@ -85,16 +89,28 @@ public class GuiServer extends Application{
 				switch (message.type) {
 					case NEWCONNECTION:
 						// Add newly connected clients to the connectedClientsList to be displayed
-						connectedClientsList.getItems().add("Client #" + message.clientId + " has connected to the server");
+						connectedClientsList.getItems().add("Client #" + message.clientId);
 						break;
 					case TEXT:
 						messageList.getItems().add("From " + message.sender + ": " + message.message);
 						break;
 					case LOGIN:
-						loggedInUsersList.getItems().add("Client with username: " + message.sender + " has logged in.");
+						loggedInUsers.add(message.sender);
 						break;
 					case NEWGAMESESSION:
 						gameSessionList.getItems().add(message.message);
+						break;
+					case LOGOUT:
+						loggedInUsers.remove(message.sender);
+						break;
+					case DISCONNECTED:
+						connectedClientsList.getItems().remove("Client #" + message.clientId);
+						loggedInUsersList.getItems().remove(message.sender);
+						// TODO trying to remove active game when finished...
+//						gameSessionList.remove()
+						break;
+					case WAITING:
+						messageList.getItems().add(message.sender + " is waiting for a game");
 						break;
 				}
 			} catch (Exception e) {
