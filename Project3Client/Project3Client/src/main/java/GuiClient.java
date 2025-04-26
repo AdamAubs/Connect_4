@@ -3,6 +3,7 @@
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.function.Consumer;
 
@@ -38,6 +39,7 @@ public class GuiClient extends Application{
 	// Scene management
 	HashMap<String, Scene> sceneMap;
 	Stage primaryStage;
+	Stage popupStage;
 
 	// Message box scene
 	TextField messageField;
@@ -195,6 +197,17 @@ public class GuiClient extends Application{
 					case QUIT_GAME:
 						handleQuitMessage(message);
 						break;
+					case REMATCH:
+						handleRematchMessage(message);
+						break;
+					case REMATCH_ACCEPT:
+						Platform.runLater(() -> {
+							if (popupStage != null && popupStage.isShowing()) {
+								popupStage.close();
+							}
+						});
+						resetGameBoard();
+						switchToScene("game");
 					default:
 						System.out.println("Unhandled message type: " + message.type);
 				}
@@ -299,7 +312,7 @@ public class GuiClient extends Application{
 	}
 
 	private void showGameResultPopup(String title, String message) {
-		Stage popupStage = new Stage();
+		popupStage = new Stage();
 		popupStage.setTitle(title);
 
 		Label messageLabel = new Label(message);
@@ -309,13 +322,19 @@ public class GuiClient extends Application{
 		Button rematchButton = new Button("Rematch");
 		rematchButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 		rematchButton.setOnAction(e -> {
-
-			popupStage.close();
+			messageLabel.setText("Waiting for opponent");
+			rematchButton.setDisable(true);
+			Message rematchRequest = new Message(MessageType.REMATCH, username);
+			clientConnection.send(rematchRequest);
 		});
 
 		Button mainMenuButton = new Button("Main Menu");
 		mainMenuButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-		mainMenuButton.setOnAction(e -> popupStage.close());
+		mainMenuButton.setOnAction(e -> {
+			Message quitMsg = new Message(MessageType.QUIT_GAME, username);
+			clientConnection.send(quitMsg);
+			popupStage.close();
+		});
 
 		VBox layout = new VBox(10);
 		layout.setPadding(new Insets(20));
@@ -378,6 +397,27 @@ public class GuiClient extends Application{
 		alert.showAndWait();
 		switchToScene("mainMenu");
 		resetGameBoard();
+	}
+
+	private void handleRematchMessage(Message message) {
+		// create alert box to pop up asking YES or NO
+		Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+		alert.setTitle("Rematch");
+		alert.setHeaderText("Opponent wants to play again.");
+		alert.setContentText("Accept rematch?");
+		// wait for response
+		Optional<ButtonType> result = alert.showAndWait();
+		if (result.isPresent() && result.get() == ButtonType.OK) {
+			Message rematchAccept = new Message(MessageType.REMATCH_ACCEPT, username);
+			clientConnection.send(rematchAccept);
+			resetGameBoard();
+			switchToScene("game");
+		} else {
+			Message rematchDecline = new Message(MessageType.QUIT_GAME, username);
+			clientConnection.send(rematchDecline);
+			switchToScene("mainMenu");
+			resetGameBoard();
+		}
 	}
 
 	private void switchToScene(String sceneName) {
@@ -465,6 +505,12 @@ public class GuiClient extends Application{
 
 		logoutButton = new Button("Logout");
 		logoutButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		logoutButton.setOnAction(e -> {
+			Message logoutMsg = new Message(MessageType.LOGOUT, username);
+			clientConnection.send(logoutMsg);
+			statusLabel.setText("Please login to continue");
+			switchToScene("login");
+		});
 
 		HBox buttonBox = new HBox(10, joinGameButton, logoutButton);
 

@@ -332,6 +332,15 @@ public class Server{
 							case QUIT_GAME:
 								handleQuitGame(clientMessage);
 								break;
+							case REMATCH:
+								handleRematch(clientMessage);
+								break;
+							case REMATCH_ACCEPT:
+								handleRematchAccept(clientMessage);
+								break;
+							case LOGOUT:
+								handleLogout(clientMessage);
+								break;
 						}
 
 					} catch(Exception e) {
@@ -623,7 +632,7 @@ public class Server{
 			ClientThread opponent = game.player1Name.equals(quitter) ? game.player2 : game.player1;
 			// notify opponent the player has quit
 			try {
-				Message notifyOpponent = new Message(MessageType.QUIT_GAME, "SERVER", "Opponent has quit. You win! \n Returning to main menu.");
+				Message notifyOpponent = new Message(MessageType.QUIT_GAME, "SERVER", "Opponent has quit.\nReturning to main menu.");
 				opponent.out.writeObject(notifyOpponent);
 			} catch (Exception e) {
 				System.err.println("Failed to notify opponent about quit.");
@@ -640,6 +649,51 @@ public class Server{
 			// notify server GUI
 			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", quitter + " has quit the game."));
 
+		}
+
+		private void handleRematch(Message waitMsg) {
+			// get player offering rematch
+			String challenger = waitMsg.sender;
+			// get GameSession object for challenging player
+			GameSession game = playerToSession.get(challenger);
+			if (game == null) return;
+			// get opponent client thread
+			ClientThread opponent = game.player1Name.equals(challenger) ? game.player2 : game.player1;
+			// send rematch message to opponent
+			try {
+				Message opponentMsg = new Message(MessageType.REMATCH, "SERVER");
+				opponent.out.writeObject(opponentMsg);
+			} catch (Exception e) {
+				System.err.println("Failed to notify opponent about rematch.");
+			}
+			// notify server GUI
+			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", challenger + " offered a rematch."));
+		}
+
+		private void handleRematchAccept(Message acceptMsg) {
+			// get player accepting rematch
+			String challengee = acceptMsg.sender;
+			// get GameSession object for player accepting rematch
+			GameSession game = playerToSession.get(challengee);
+			if (game == null) return;
+			// get opponent client thread
+			ClientThread opponent = game.player1Name.equals(challengee) ? game.player2 : game.player1;
+			// send rematch acceptance to opponent
+			try {
+				Message opponentMsg = new Message(MessageType.REMATCH_ACCEPT, "SERVER");
+				opponent.out.writeObject(opponentMsg);
+			} catch (Exception e) {
+				System.err.println("Failed to notify opponent about rematch acceptance.");
+			}
+			// notify server GUI
+			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", challengee + " accepted a rematch."));
+		}
+
+		private void handleLogout(Message logoutMsg) {
+			if (userMap.containsKey(logoutMsg.sender)) {
+				userMap.remove(logoutMsg.sender);
+			}
+			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", logoutMsg.sender + " has logged out."));
 		}
 
 

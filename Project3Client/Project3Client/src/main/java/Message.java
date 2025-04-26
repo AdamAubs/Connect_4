@@ -34,7 +34,7 @@ public class Message implements Serializable {
         this.lastMoveColumn = column;
     }
 
-    // message for leaving queue or quitting game
+    // message for leaving queue, quitting game, or rematch
     public Message(MessageType type, String sender) {
         this.type = type;
         this.sender = sender;
