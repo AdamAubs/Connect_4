@@ -106,12 +106,12 @@ public class GuiServer extends Application{
 					case DISCONNECTED:
 						connectedClientsList.getItems().remove("Client #" + message.clientId);
 						loggedInUsersList.getItems().remove(message.sender);
-						// TODO trying to remove active game when finished...
-//						gameSessionList.remove()
 						break;
 					case WAITING:
 						messageList.getItems().add(message.sender + " is waiting for a game");
 						break;
+					case LEAVE_QUEUE:
+						messageList.getItems().add(message.sender + " left the game queue");
 				}
 			} catch (Exception e) {
 				System.err.println("Error handling message: " + e.getMessage());
@@ -137,7 +137,7 @@ public class GuiServer extends Application{
 
 		HBox listsBox = new HBox(10, clientsBox, usersBox, messagesBox);
 
-		Label gameSessionsLabel = new Label("Active Game sessions");
+		Label gameSessionsLabel = new Label("Game session log");
 		gameSessionsLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		VBox gameSessionBox = new VBox(5, gameSessionsLabel, gameSessionList);

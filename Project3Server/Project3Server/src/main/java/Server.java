@@ -271,6 +271,7 @@ public class Server{
 		String username = null;
 		String timeloggedIn = null;
 		String timeloggedOut = null;
+		String timeJoinedGame = null;
 		GameSession currentGame = null;
 
 		// Client constructor gets passed
@@ -347,6 +348,7 @@ public class Server{
 						handleDisconnect();
 						offlineClients.add(this);
 						clients.remove(this);
+						handleQuitGame(new Message(MessageType.QUIT_GAME, username));
 						activeSessions.remove(playerToSession.get((username)));
 						userMap.remove(username);
 						break;
@@ -483,9 +485,13 @@ public class Server{
 							// Initialize the game
 							newGame.startGame();
 
+							// Record the start time of game
+							DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+							this.timeJoinedGame = LocalTime.now().format(timeFormatter);
+
 							// Notify server UI
 							Message newGameSessionMsg = new Message(MessageType.NEWGAMESESSION, "SERVER",
-									"Game between " + player1username + " and " + player2username);
+									"Game started between " + player1username + " and " + player2username + " at " + this.timeJoinedGame);
 							serverConnectionCallback.accept(newGameSessionMsg);
 
 							// Notify both players
@@ -617,6 +623,7 @@ public class Server{
 				if (waitingQueue.contains(leaveMsg.sender)) {
 					waitingQueue.remove(leaveMsg.sender);
 					System.out.println("Player " + leaveMsg.sender + " left the waiting queue.");
+					serverConnectionCallback.accept(new Message(MessageType.LEAVE_QUEUE, leaveMsg.sender));
 				} else {
 					System.out.println("Player " + username + " attempted to leave queue, but wasn't in it.");
 				}
