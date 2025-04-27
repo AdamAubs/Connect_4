@@ -1,15 +1,11 @@
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.function.Consumer;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-
-import javafx.application.Platform;
-import javafx.scene.control.ListView;
 
 public class Server{
 
@@ -73,7 +69,6 @@ public class Server{
 		String player1Name;
 		String player2Name;
 		int[][] gameboard = new int[6][7];
-		// ********************************* change currentPlayer to be rand() % 2 + 1 for random starting??
 		int currentPlayer = 1; // 1 for player1, 2 for player2
 		boolean gameOver = false;
 		String winner = null;
@@ -95,13 +90,10 @@ public class Server{
 				}
 			}
 
-			// ********************************* change currentPlayer to be rand() % 2 + 1 for random starting??
 			currentPlayer = 1; // Player 1 goes first
 			gameOver = false;
 			winner = null;
-
 		}
-
 
 		// Takes an int representing column and player (1: player1, 2: player2) and
 		// sets lowest available space in col and returns row
@@ -263,7 +255,6 @@ public class Server{
 	// Creates a new thread for a client
 	class ClientThread extends Thread{
 
-
 		Socket connection;
 		int count;
 		ObjectInputStream in;
@@ -312,32 +303,39 @@ public class Server{
 						// Handle different message types
 						switch (clientMessage.type) {
 							case LOGIN:
+								System.out.println("Handling client login...");
 								handleLogin(clientMessage);
 								break;
 							case JOIN_GAME:
+								 System.out.println("Handling client joining the game...");
 								 handleJoinGame(clientMessage);
 								 break;
-							case GAME_STATE:
-								// TODO: implement handleGameState(clientMessage)
 							case GAME_ACTION:
+								System.out.println("Handling game action message...");
 								handleGameAction(clientMessage);
 								break;
 							case TEXT:
+								System.out.println("Handling text message...");
 								handleTextMessage(clientMessage);
 								break;
 							case LEAVE_QUEUE:
+								System.out.println("Handling player leaving the queue...");
 								handleLeaveQueue(clientMessage);
 								break;
 							case QUIT_GAME:
+								System.out.println("Handling quit game...");
 								handleQuitGame(clientMessage);
 								break;
 							case REMATCH:
+								System.out.println("Handling rematch...");
 								handleRematch(clientMessage);
 								break;
 							case REMATCH_ACCEPT:
+								System.out.println("Handling rematch accept...");
 								handleRematchAccept(clientMessage);
 								break;
 							case LOGOUT:
+								System.out.println("Handling Logout...");
 								handleLogout(clientMessage);
 								break;
 						}
@@ -440,8 +438,6 @@ public class Server{
 			} catch (Exception e) {
 				System.out.println("Error handling login: " + e.getMessage());
 			}
-
-			// Update the server's GUI to show that the user has logged out
 		}
 
 		// Adds player who clicks "join button" first to waiting queue.
@@ -513,10 +509,6 @@ public class Server{
 					e.printStackTrace();
 				}
 			}
-		}
-
-		private void restartGameSession(String player1, String player2) {
-
 		}
 
 		private void handleTextMessage(Message textMsg) {
@@ -728,20 +720,10 @@ public class Server{
 								"Starting game", initialBoard, 2);
 						game.player2.out.writeObject(p2Msg);
 					}
-
-
 				} catch (Exception e) {
 					System.err.println("Failed to notify opponent about rematch acceptance.");
 				}
 			}
-
-//			// send rematch acceptance to opponent
-//			try {
-//				Message opponentMsg = new Message(MessageType.REMATCH_ACCEPT, "SERVER");
-//				opponent.out.writeObject(opponentMsg);
-//			} catch (Exception e) {
-//				System.err.println("Failed to notify opponent about rematch acceptance.");
-//			}
 			// notify server GUI
 			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", challengee + " accepted a rematch."));
 		}
