@@ -60,9 +60,11 @@ public class GuiClient extends Application{
 
 	// Gameboard
 	Label gameBoardLabel;
+	Label instructionLabel;
 	GridPane gameBoardGrid;
 	GridPane dropButtonGrid;
 	VBox gameBox;
+	Button dropButton;
 
 	// Message box
 	Label messageBoxLabel;
@@ -70,6 +72,7 @@ public class GuiClient extends Application{
 	TextField inputField;
 
 	private GameState currentGameState = GameState.NOT_IN_GAME;
+	private String playersColor;
 	private int playerNumber;
 	private String opponentName;
 	private static int ROWS = 6;
@@ -220,9 +223,11 @@ public class GuiClient extends Application{
 			if (message.player1username.equals(this.username)) {
 				playerNumber = 1;
 				opponentName = message.player2username;
+				playersColor = "yellow";
 			} else {
 				playerNumber = 2;
 				opponentName = message.player1username;
+				playersColor = "red";
 			}
 		}
 
@@ -237,10 +242,17 @@ public class GuiClient extends Application{
 			// Set initial turn
 			if (message.currentPlayer == playerNumber) {
 				currentGameState = GameState.MY_TURN;
+				for (Button btn : columnButtons) {
+					btn.setStyle("-fx-background-color: yellow;");
+				}
 				gameStateListView.getItems().add("Your turn!");
 				setColumnButtonsEnabled(true);
 			} else {
 				currentGameState = GameState.OPPONENT_TURN;
+				for (Button btn : columnButtons) {
+					btn.setStyle("-fx-background-color: red;");
+				}
+
 				gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
 				setColumnButtonsEnabled(false);
 			}
@@ -510,7 +522,12 @@ public class GuiClient extends Application{
 
 	private Scene createGameScene() {
 		gameBoardLabel = new Label("Game against " + opponentName);
-		gameBoardLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px; -fx-font-weight: bold;");
+		gameBoardLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 20px; -fx-font-weight: bold;");
+		gameBoardLabel.setAlignment(Pos.CENTER);
+
+		instructionLabel = new Label("Click a circle button above a column to drop your token.");
+		instructionLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 15px; -fx-font-weight: bold;");
+		instructionLabel.setAlignment(Pos.CENTER);
 
 		gameBoardGrid = new GridPane();
 		dropButtonGrid = new GridPane();
@@ -518,7 +535,7 @@ public class GuiClient extends Application{
 		//create token drop buttons and save to columnButtons[] array
 		for (int col = 0; col < COLS; col++) {
 			// visuals
-			Button dropButton = new Button("↓");
+			dropButton = new Button("↓");
 			Circle circle = new Circle(17);
 			dropButton.setShape(circle);
 			dropButton.setMinSize(34, 34);
@@ -549,6 +566,9 @@ public class GuiClient extends Application{
 				gameBoardGrid.add(stack, col, row);
 			}
 		}
+
+		dropButtonGrid.setAlignment(Pos.CENTER);
+		gameBoardGrid.setAlignment(Pos.CENTER);
 
 		messageBoxLabel = new Label("Chat Box");
 		messageBoxLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 18px; -fx-font-weight: bold;");
@@ -596,7 +616,7 @@ public class GuiClient extends Application{
 		gameStateListView = new ListView<>();
 		gameStateListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px; -fx-background-color: #ffffff;");
 
-		gameBox = new VBox(20, gameBoardLabel, dropButtonGrid, gameBoardGrid, gameStateListView);
+		gameBox = new VBox(20, gameBoardLabel, instructionLabel, dropButtonGrid, gameBoardGrid, gameStateListView);
 		gameBox.setPadding(new Insets(20));
 		gameBox.setAlignment(Pos.TOP_CENTER);
 
