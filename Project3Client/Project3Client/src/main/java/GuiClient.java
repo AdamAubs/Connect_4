@@ -251,7 +251,6 @@ public class GuiClient extends Application{
 			if (message.currentPlayer == playerNumber) {
 				currentGameState = GameState.MY_TURN;
 				gameStateListView.getItems().add("Your turn!");
-				gameStateListView.getItems().add("Player " + message.currentPlayer);
 				setColumnButtonsEnabled(true);
 			} else {
 				currentGameState = GameState.OPPONENT_TURN;
@@ -303,14 +302,53 @@ public class GuiClient extends Application{
 			}
 			updateGameBoardUI();
 
-			String resultMessage = winner.equals(username) ? "You won!" : "You lost!";
-			showGameResultPopup("Game over", resultMessage);
-
 			gameStateListView.getItems().add("Player: " + winner + " won!");
 			gameStateListView.getItems().add("Ending game");
 
+			String resultMessage = winner.equals(username) ? "You won!" : "You lost!";
+			sceneMap.put("endGame", showEndGameScene("Game Over", resultMessage));
+			switchToScene("endGame");
+
 			// Send message back to server to end the game
 		}
+	}
+
+	private Scene showEndGameScene(String title, String message) {
+		Label gameOverLabel = new Label(title);
+		gameOverLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		Label gameOverResultLabel = new Label(message);
+		gameOverResultLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		Label messageLabel = new Label(message);
+		messageLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		messageLabel.setTextFill(Color.BLACK);
+
+		Button rematchButton = new Button("Rematch");
+		rematchButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		rematchButton.setOnAction(e -> {
+			messageLabel.setText("Waiting for opponent");
+			messageLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+			rematchButton.setDisable(true);
+			Message rematchRequest = new Message(MessageType.REMATCH, username);
+			clientConnection.send(rematchRequest);
+		});
+
+		Button mainMenuButton = new Button("Main Menu");
+		mainMenuButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		mainMenuButton.setOnAction(e -> {
+			Message quitMsg = new Message(MessageType.QUIT_GAME, username);
+			clientConnection.send(quitMsg);
+			resetGameBoard();
+			switchToScene("mainMenu");
+		});
+
+		VBox layout = new VBox(10);
+		layout.setPadding(new Insets(20));
+		layout.getChildren().addAll(messageLabel, rematchButton, mainMenuButton);
+		layout.setStyle("-fx-background-color: white; -fx-alignment: center;");
+
+		return new Scene(layout, 500, 500);
 	}
 
 	private void showGameResultPopup(String title, String message) {
@@ -325,6 +363,7 @@ public class GuiClient extends Application{
 		rematchButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 		rematchButton.setOnAction(e -> {
 			messageLabel.setText("Waiting for opponent");
+			messageLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 			rematchButton.setDisable(true);
 			Message rematchRequest = new Message(MessageType.REMATCH, username);
 			clientConnection.send(rematchRequest);
@@ -396,6 +435,8 @@ public class GuiClient extends Application{
 		Alert alert = new Alert(Alert.AlertType.INFORMATION);
 		alert.setTitle("Quit");
 		alert.setContentText(message.message);
+		alert.getDialogPane().setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
 		alert.showAndWait();
 		switchToScene("mainMenu");
 		resetGameBoard();
@@ -407,6 +448,8 @@ public class GuiClient extends Application{
 		alert.setTitle("Rematch");
 		alert.setHeaderText("Opponent wants to play again.");
 		alert.setContentText("Accept rematch?");
+		alert.getDialogPane().setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
 		// wait for response
 		Optional<ButtonType> result = alert.showAndWait();
 		if (result.isPresent() && result.get() == ButtonType.OK) {
@@ -434,8 +477,11 @@ public class GuiClient extends Application{
 				break;
 			case "waiting":
 				primaryStage.setTitle("Client - Waiting");
+			case "endGame":
+				primaryStage.setTitle("Client - End Game");
 		}
 	}
+
 
 	private Scene createLoginScene() {
 		usernameField = new TextField();
@@ -589,10 +635,6 @@ public class GuiClient extends Application{
 			}
 		}
 
-		// Chat box
-//		Label messageBoxLabel;
-//		ListView<String> messageBoxListView;
-//		VBox messageBox;
 		messageBoxLabel = new Label("Chat Box");
 		messageBoxLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 		messageListView = new ListView<>();
@@ -621,6 +663,7 @@ public class GuiClient extends Application{
 
 		// quit game button
 		Button quitGameButton = new Button("Quit Game");
+		quitGameButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 		quitGameButton.setOnAction(e -> {
 			Message quitMsg = new Message(MessageType.QUIT_GAME, username);
 			clientConnection.send(quitMsg);
@@ -677,6 +720,12 @@ public class GuiClient extends Application{
 				gameBoard[row][col] = 0;
 			}
 		}
+
+		if (playerNumber != 1) {
+			gameStateListView.getItems().clear();
+			gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
+		}
+
 		updateGameBoardUI();
 	}
 

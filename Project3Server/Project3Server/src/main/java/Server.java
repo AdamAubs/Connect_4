@@ -513,6 +513,9 @@ public class Server{
 					e.printStackTrace();
 				}
 			}
+		}
+
+		private void restartGameSession(String player1, String player2) {
 
 		}
 
@@ -662,6 +665,7 @@ public class Server{
 		private void handleRematch(Message waitMsg) {
 			// get player offering rematch
 			String challenger = waitMsg.sender;
+
 			// get GameSession object for challenging player
 			GameSession game = playerToSession.get(challenger);
 			if (game == null) return;
@@ -685,14 +689,59 @@ public class Server{
 			GameSession game = playerToSession.get(challengee);
 			if (game == null) return;
 			// get opponent client thread
-			ClientThread opponent = game.player1Name.equals(challengee) ? game.player2 : game.player1;
-			// send rematch acceptance to opponent
-			try {
-				Message opponentMsg = new Message(MessageType.REMATCH_ACCEPT, "SERVER");
-				opponent.out.writeObject(opponentMsg);
-			} catch (Exception e) {
-				System.err.println("Failed to notify opponent about rematch acceptance.");
+			ClientThread opponentThread = game.player1Name.equals(challengee) ? game.player2 : game.player1;
+
+			// get challenge thread
+			ClientThread challengeeThread = userMap.get(challengee);
+
+			// reset the game session
+			if (game.player1 != null && game.player2 != null) {
+				// Initialize the game
+				game.startGame();
+
+				// Record the start time of game
+				DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+				this.timeJoinedGame = LocalTime.now().format(timeFormatter);
+
+				// Notify server UI
+				Message newGameSessionMsg = new Message(MessageType.NEWGAMESESSION, "SERVER",
+						"Game started between " + game.player1Name + " and " + game.player2Name + " at " + this.timeJoinedGame);
+				serverConnectionCallback.accept(newGameSessionMsg);
+
+				// Notify both players
+				int[][] initialBoard = game.gameboard;
+
+				try {
+					Message opponentMsg = new Message(MessageType.REMATCH_ACCEPT, "SERVER");
+					opponentThread.out.writeObject(opponentMsg);
+
+					Message challengeMsg = new Message(MessageType.REMATCH_ACCEPT, "SERVER");
+					challengeeThread.out.writeObject(challengeMsg);
+					if (game.currentPlayer == 1) {
+						// Player 1 notification (goes first) indicated by 1 for current player
+						Message p1Msg = new Message(MessageType.GAME_STATE, "SERVER", game.player1Name, game.player2Name,
+								"Starting game", initialBoard, 1);
+						game.player1.out.writeObject(p1Msg);
+					} else {
+						// Player 2 notification
+						Message p2Msg = new Message(MessageType.GAME_STATE, "SERVER", game.player1Name, game.player2Name,
+								"Starting game", initialBoard, 2);
+						game.player2.out.writeObject(p2Msg);
+					}
+
+
+				} catch (Exception e) {
+					System.err.println("Failed to notify opponent about rematch acceptance.");
+				}
 			}
+
+//			// send rematch acceptance to opponent
+//			try {
+//				Message opponentMsg = new Message(MessageType.REMATCH_ACCEPT, "SERVER");
+//				opponent.out.writeObject(opponentMsg);
+//			} catch (Exception e) {
+//				System.err.println("Failed to notify opponent about rematch acceptance.");
+//			}
 			// notify server GUI
 			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", challengee + " accepted a rematch."));
 		}
