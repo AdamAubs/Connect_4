@@ -1,15 +1,11 @@
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
 import java.util.function.Consumer;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-
-import javafx.application.Platform;
-import javafx.scene.control.ListView;
 
 public class Server{
 
@@ -67,14 +63,12 @@ public class Server{
 		}
 	}
 
-	// TODO: finish implementing logic for game session on the server
 	class GameSession {
 		ClientThread player1;
 		ClientThread player2;
 		String player1Name;
 		String player2Name;
 		int[][] gameboard = new int[6][7];
-		// ********************************* change currentPlayer to be rand() % 2 + 1 for random starting??
 		int currentPlayer = 1; // 1 for player1, 2 for player2
 		boolean gameOver = false;
 		String winner = null;
@@ -96,12 +90,10 @@ public class Server{
 				}
 			}
 
-			// ********************************* change currentPlayer to be rand() % 2 + 1 for random starting??
 			currentPlayer = 1; // Player 1 goes first
 			gameOver = false;
 			winner = null;
 		}
-
 
 		// Takes an int representing column and player (1: player1, 2: player2) and
 		// sets lowest available space in col and returns row
@@ -262,6 +254,7 @@ public class Server{
 
 	// Creates a new thread for a client
 	class ClientThread extends Thread{
+
 		Socket connection;
 		int count;
 		ObjectInputStream in;
@@ -269,6 +262,7 @@ public class Server{
 		String username = null;
 		String timeloggedIn = null;
 		String timeloggedOut = null;
+		String timeJoinedGame = null;
 		GameSession currentGame = null;
 
 		// Client constructor gets passed
@@ -309,25 +303,52 @@ public class Server{
 						// Handle different message types
 						switch (clientMessage.type) {
 							case LOGIN:
+								System.out.println("Handling client login...");
 								handleLogin(clientMessage);
 								break;
 							case JOIN_GAME:
+								 System.out.println("Handling client joining the game...");
 								 handleJoinGame(clientMessage);
 								 break;
-							case GAME_STATE:
-								// TODO: implement handleGameState(clientMessage)
 							case GAME_ACTION:
+								System.out.println("Handling game action message...");
 								handleGameAction(clientMessage);
+								break;
 							case TEXT:
+								System.out.println("Handling text message...");
 								handleTextMessage(clientMessage);
+								break;
+							case LEAVE_QUEUE:
+								System.out.println("Handling player leaving the queue...");
+								handleLeaveQueue(clientMessage);
+								break;
+							case QUIT_GAME:
+								System.out.println("Handling quit game...");
+								handleQuitGame(clientMessage);
+								break;
+							case REMATCH:
+								System.out.println("Handling rematch...");
+								handleRematch(clientMessage);
+								break;
+							case REMATCH_ACCEPT:
+								System.out.println("Handling rematch accept...");
+								handleRematchAccept(clientMessage);
+								break;
+							case LOGOUT:
+								System.out.println("Handling Logout...");
+								handleLogout(clientMessage);
+								break;
 						}
 
 					} catch(Exception e) {
+						serverConnectionCallback.accept(new Message(MessageType.DISCONNECTED, count, username));
 						serverConnectionCallback.accept(new Message("OOOOPPs...Something wrong with the socket from client: " + count + "....closing down!"));
 						handleDisconnect();
 						offlineClients.add(this);
 						clients.remove(this);
-
+						handleQuitGame(new Message(MessageType.QUIT_GAME, username));
+						activeSessions.remove(playerToSession.get((username)));
+						userMap.remove(username);
 						break;
 					}
 			 }
@@ -417,8 +438,6 @@ public class Server{
 			} catch (Exception e) {
 				System.out.println("Error handling login: " + e.getMessage());
 			}
-
-			// Update the server's GUI to show that the user has logged out
 		}
 
 		// Adds player who clicks "join button" first to waiting queue.
@@ -433,8 +452,9 @@ public class Server{
 
 				try {
 					System.out.println("Player " + username + " joined the waiting queue");
-					Message waitingMsg = new Message(MessageType.WAITING, "SERVER", "Waiting for an opponent to join. Players in queue: " + waitingQueue.size());
+					Message waitingMsg = new Message(MessageType.WAITING, "SERVER", "Waiting for an opponent to join.");
 					out.writeObject(waitingMsg);
+					serverConnectionCallback.accept(new Message(MessageType.WAITING, joinGameMsg.sender));
 
 					// If we have 2 players, create a game session
 					if (waitingQueue.size() >= 2) {
@@ -461,9 +481,13 @@ public class Server{
 							// Initialize the game
 							newGame.startGame();
 
+							// Record the start time of game
+							DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+							this.timeJoinedGame = LocalTime.now().format(timeFormatter);
+
 							// Notify server UI
 							Message newGameSessionMsg = new Message(MessageType.NEWGAMESESSION, "SERVER",
-									"New game started between " + player1username + " and " + player2username);
+									"Game started between " + player1username + " and " + player2username + " at " + this.timeJoinedGame);
 							serverConnectionCallback.accept(newGameSessionMsg);
 
 							// Notify both players
@@ -485,7 +509,6 @@ public class Server{
 					e.printStackTrace();
 				}
 			}
-
 		}
 
 		private void handleTextMessage(Message textMsg) {
@@ -588,6 +611,129 @@ public class Server{
 				System.err.println("Error updating game state: " + e.getMessage());
 			}
 
+		}
+
+		private void handleLeaveQueue(Message leaveMsg) {
+			synchronized(waitingQueue){
+				if (waitingQueue.contains(leaveMsg.sender)) {
+					waitingQueue.remove(leaveMsg.sender);
+					System.out.println("Player " + leaveMsg.sender + " left the waiting queue.");
+					serverConnectionCallback.accept(new Message(MessageType.LEAVE_QUEUE, leaveMsg.sender));
+				} else {
+					System.out.println("Player " + username + " attempted to leave queue, but wasn't in it.");
+				}
+			}
+		}
+
+		private void handleQuitGame(Message quitMsg) {
+			// get username of player who quit
+			String quitter = quitMsg.sender;
+			// get GameSession object of player who quit
+			GameSession game = playerToSession.get(quitter);
+			if (game == null) return;
+			// get thread of quitter's opponent
+			ClientThread opponent = game.player1Name.equals(quitter) ? game.player2 : game.player1;
+			// notify opponent the player has quit
+			try {
+				Message notifyOpponent = new Message(MessageType.QUIT_GAME, "SERVER", "Opponent has quit.\nReturning to main menu.");
+				opponent.out.writeObject(notifyOpponent);
+			} catch (Exception e) {
+				System.err.println("Failed to notify opponent about quit.");
+			}
+			// remove game from active sessions
+			activeSessions.remove(game);
+			// remove players from session map
+			playerToSession.remove(game.player1Name);
+			playerToSession.remove(game.player2Name);
+			// set GameSession object's game to null
+			game.player1.currentGame = null;
+			game.player2.currentGame = null;
+
+			// notify server GUI
+			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", quitter + " has quit the game."));
+
+		}
+
+		private void handleRematch(Message waitMsg) {
+			// get player offering rematch
+			String challenger = waitMsg.sender;
+
+			// get GameSession object for challenging player
+			GameSession game = playerToSession.get(challenger);
+			if (game == null) return;
+			// get opponent client thread
+			ClientThread opponent = game.player1Name.equals(challenger) ? game.player2 : game.player1;
+			// send rematch message to opponent
+			try {
+				Message opponentMsg = new Message(MessageType.REMATCH, "SERVER");
+				opponent.out.writeObject(opponentMsg);
+			} catch (Exception e) {
+				System.err.println("Failed to notify opponent about rematch.");
+			}
+			// notify server GUI
+			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", challenger + " offered a rematch."));
+		}
+
+		private void handleRematchAccept(Message acceptMsg) {
+			// get player accepting rematch
+			String challengee = acceptMsg.sender;
+			// get GameSession object for player accepting rematch
+			GameSession game = playerToSession.get(challengee);
+			if (game == null) return;
+			// get opponent client thread
+			ClientThread opponentThread = game.player1Name.equals(challengee) ? game.player2 : game.player1;
+
+			// get challenge thread
+			ClientThread challengeeThread = userMap.get(challengee);
+
+			// reset the game session
+			if (game.player1 != null && game.player2 != null) {
+				// Initialize the game
+				game.startGame();
+
+				// Record the start time of game
+				DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm a");
+				this.timeJoinedGame = LocalTime.now().format(timeFormatter);
+
+				// Notify server UI
+				Message newGameSessionMsg = new Message(MessageType.NEWGAMESESSION, "SERVER",
+						"Game started between " + game.player1Name + " and " + game.player2Name + " at " + this.timeJoinedGame);
+				serverConnectionCallback.accept(newGameSessionMsg);
+
+				// Notify both players
+				int[][] initialBoard = game.gameboard;
+
+				try {
+					Message opponentMsg = new Message(MessageType.REMATCH_ACCEPT, "SERVER");
+					opponentThread.out.writeObject(opponentMsg);
+
+					Message challengeMsg = new Message(MessageType.REMATCH_ACCEPT, "SERVER");
+					challengeeThread.out.writeObject(challengeMsg);
+					if (game.currentPlayer == 1) {
+						// Player 1 notification (goes first) indicated by 1 for current player
+						Message p1Msg = new Message(MessageType.GAME_STATE, "SERVER", game.player1Name, game.player2Name,
+								"Starting game", initialBoard, 1);
+						game.player1.out.writeObject(p1Msg);
+					} else {
+						// Player 2 notification
+						Message p2Msg = new Message(MessageType.GAME_STATE, "SERVER", game.player1Name, game.player2Name,
+								"Starting game", initialBoard, 2);
+						game.player2.out.writeObject(p2Msg);
+					}
+				} catch (Exception e) {
+					System.err.println("Failed to notify opponent about rematch acceptance.");
+				}
+			}
+			// notify server GUI
+			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", challengee + " accepted a rematch."));
+		}
+
+		private void handleLogout(Message logoutMsg) {
+			if (userMap.containsKey(logoutMsg.sender)) {
+				userMap.remove(logoutMsg.sender);
+			}
+			serverConnectionCallback.accept(new Message(MessageType.LOGOUT, logoutMsg.sender));
+			serverConnectionCallback.accept(new Message(MessageType.TEXT, "SERVER", logoutMsg.sender + " has logged out."));
 		}
 
 

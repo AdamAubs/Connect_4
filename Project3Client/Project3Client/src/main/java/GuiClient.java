@@ -1,21 +1,18 @@
 
-
-import java.awt.*;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Scanner;
-import java.util.function.Consumer;
+import java.util.Optional;
 
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.*;
+
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
-
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -38,9 +35,9 @@ public class GuiClient extends Application{
 	// Scene management
 	HashMap<String, Scene> sceneMap;
 	Stage primaryStage;
+	Stage popupStage;
 
 	// Message box scene
-	TextField messageField;
 	Button sendButton;
 	ListView<String> messageListView;
 
@@ -61,22 +58,21 @@ public class GuiClient extends Application{
 	// Game State View
 	ListView<String> gameStateListView;
 
-	// Game winner/loser pop up display
-	StackPane gameDisplay;
-
 	// Gameboard
 	Label gameBoardLabel;
+	Label instructionLabel;
 	GridPane gameBoardGrid;
 	GridPane dropButtonGrid;
 	VBox gameBox;
+	Button dropButton;
 
 	// Message box
 	Label messageBoxLabel;
-	ListView<String> messageBoxListView;
 	VBox messageBox;
 	TextField inputField;
 
 	private GameState currentGameState = GameState.NOT_IN_GAME;
+	private String playersColor;
 	private int playerNumber;
 	private String opponentName;
 	private static int ROWS = 6;
@@ -84,9 +80,6 @@ public class GuiClient extends Application{
 	private int[][] gameBoard = new int[ROWS][COLS];
 	private Button[] columnButtons = new Button[COLS];
 	private StackPane[][] gameBoardDisplay = new StackPane[ROWS][COLS];
-
-	Label gameStatusLabel;
-	Button gameActionButton;
 
 	public static void main(String[] args) {
 		launch(args);
@@ -181,7 +174,6 @@ public class GuiClient extends Application{
 						handleGameStateMessage(message);
 						break;
 					case GAME_ACTION:
-						// TODO: handleGameAction(message)
 						// reflect opponents move on client scene
 						handleGameActionMessage(message);
 						break;
@@ -192,6 +184,21 @@ public class GuiClient extends Application{
 						} else {
 							System.out.println("Unable to add already offline user to users to List view");
 						}
+						break;
+					case QUIT_GAME:
+						handleQuitMessage(message);
+						break;
+					case REMATCH:
+						handleRematchMessage(message);
+						break;
+					case REMATCH_ACCEPT:
+						Platform.runLater(() -> {
+							if (popupStage != null && popupStage.isShowing()) {
+								popupStage.close();
+							}
+						});
+						resetGameBoard();
+						switchToScene("game");
 						break;
 					default:
 						System.out.println("Unhandled message type: " + message.type);
@@ -204,7 +211,6 @@ public class GuiClient extends Application{
 	}
 
 	// Takes in a message that contains the state of the gameboard
-	// TODO: finish handling game states
 	private void handleGameStateMessage(Message message) {
 
 		// Update clients game board
@@ -217,9 +223,11 @@ public class GuiClient extends Application{
 			if (message.player1username.equals(this.username)) {
 				playerNumber = 1;
 				opponentName = message.player2username;
+				playersColor = "yellow";
 			} else {
 				playerNumber = 2;
 				opponentName = message.player1username;
+				playersColor = "red";
 			}
 		}
 
@@ -234,11 +242,17 @@ public class GuiClient extends Application{
 			// Set initial turn
 			if (message.currentPlayer == playerNumber) {
 				currentGameState = GameState.MY_TURN;
+				for (Button btn : columnButtons) {
+					btn.setStyle("-fx-background-color: yellow;");
+				}
 				gameStateListView.getItems().add("Your turn!");
-				gameStateListView.getItems().add("Player " + message.currentPlayer);
 				setColumnButtonsEnabled(true);
 			} else {
 				currentGameState = GameState.OPPONENT_TURN;
+				for (Button btn : columnButtons) {
+					btn.setStyle("-fx-background-color: red;");
+				}
+
 				gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
 				setColumnButtonsEnabled(false);
 			}
@@ -259,7 +273,7 @@ public class GuiClient extends Application{
 				}
 			}
 
-			showGameResultPopup("Draw", "It's a draw!");
+			showEndGameScene("Draw", "It's a draw!");
 
 			gameStateListView.getItems().add("It's a draw!");
 			gameStateListView.getItems().add("Ending game");
@@ -287,42 +301,15 @@ public class GuiClient extends Application{
 			}
 			updateGameBoardUI();
 
-			String resultMessage = winner.equals(username) ? "You won!" : "You lost!";
-			showGameResultPopup("Game over", resultMessage);
-
 			gameStateListView.getItems().add("Player: " + winner + " won!");
 			gameStateListView.getItems().add("Ending game");
 
-			// Send message back to server to end the game
+			String resultMessage = winner.equals(username) ? "You won!" : "You lost!";
+			sceneMap.put("endGame", showEndGameScene("Game Over", resultMessage));
+			switchToScene("endGame");
 		}
 	}
 
-	private void showGameResultPopup(String title, String message) {
-		Stage popupStage = new Stage();
-		popupStage.setTitle(title);
-
-		Label messageLabel = new Label(message);
-		messageLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-		messageLabel.setTextFill(Color.BLACK);
-
-		Button rematchButton = new Button("Rematch");
-		rematchButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-		rematchButton.setOnAction(e -> popupStage.close());
-
-		Button mainMenuButton = new Button("Main Menu");
-		mainMenuButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
-		mainMenuButton.setOnAction(e -> popupStage.close());
-
-		VBox layout = new VBox(10);
-		layout.setPadding(new Insets(20));
-		layout.getChildren().addAll(messageLabel, rematchButton, mainMenuButton);
-		layout.setStyle("-fx-background-color: white; -fx-alignment: center;");
-
-		Scene scene = new Scene(layout, 300, 150);
-		popupStage.setScene(scene);
-		popupStage.setAlwaysOnTop(true);
-		popupStage.showAndWait();
-	}
 
 	private void handleGameActionMessage(Message message) {
 		if (message.lastMoveColumn >= 0 && message.lastMoveColumn < COLS && message.sender != null) {
@@ -364,6 +351,40 @@ public class GuiClient extends Application{
 		}
 	}
 
+	private void handleQuitMessage(Message message) {
+		Alert alert = new Alert(Alert.AlertType.INFORMATION);
+		alert.setTitle("Quit");
+		alert.setContentText(message.message);
+		alert.getDialogPane().setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		alert.showAndWait();
+		switchToScene("mainMenu");
+		resetGameBoard();
+	}
+
+	private void handleRematchMessage(Message message) {
+		// create alert box to pop up asking YES or NO
+		Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+		alert.setTitle("Rematch");
+		alert.setHeaderText("Opponent wants to play again.");
+		alert.setContentText("Accept rematch?");
+		alert.getDialogPane().setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+
+		// wait for response
+		Optional<ButtonType> result = alert.showAndWait();
+		if (result.isPresent() && result.get() == ButtonType.OK) {
+			Message rematchAccept = new Message(MessageType.REMATCH_ACCEPT, username);
+			clientConnection.send(rematchAccept);
+			resetGameBoard();
+			switchToScene("game");
+		} else {
+			Message rematchDecline = new Message(MessageType.QUIT_GAME, username);
+			clientConnection.send(rematchDecline);
+			switchToScene("mainMenu");
+			resetGameBoard();
+		}
+	}
+
 	private void switchToScene(String sceneName) {
 		primaryStage.setScene(sceneMap.get(sceneName));
 
@@ -374,14 +395,21 @@ public class GuiClient extends Application{
 			case "mainMenu":
 				primaryStage.setTitle("Client - Main Menu");
 				break;
+			case "waiting":
+				primaryStage.setTitle("Client - Waiting");
+			case "endGame":
+				primaryStage.setTitle("Client - End Game");
 		}
 	}
+
 
 	private Scene createLoginScene() {
 		usernameField = new TextField();
 		usernameField.setPromptText("Enter username");
 
 		loginButton = new Button("Login");
+		// make button click when user presses ENTER
+		loginButton.setDefaultButton(true);
 		loginButton.setOnAction(e -> {
 			username = usernameField.getText();
 			if (username != null && !username.trim().isEmpty()) {
@@ -415,26 +443,27 @@ public class GuiClient extends Application{
 
 	private Scene createMainMenuScene() {
 		Label mainMenuLabel = new Label("Main Menu - Welcome " + this.username);
-		mainMenuLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		mainMenuLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 24px; -fx-font-weight: bold;");
 
 		Label onlineLabel = new Label("Online Users:");
-		onlineLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		onlineLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 16px;");
 
 		onlineUsersListView = new ListView<>();
 		onlineUsersListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
 		Label offlineLabel = new Label("Offline Users:");
-		offlineLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		offlineLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 16px;");
 
 		offlineUsersListView = new ListView<>();
 		offlineUsersListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
 
-		VBox onlineBox = new VBox(10, onlineLabel, onlineUsersListView);
-		VBox offlineBox = new VBox(10, offlineLabel, offlineUsersListView);
-		HBox connectionStatusBox = new HBox(10, onlineBox, offlineBox);
+		VBox onlineBox = new VBox(5, onlineLabel, onlineUsersListView);
+		VBox offlineBox = new VBox(5, offlineLabel, offlineUsersListView);
+		HBox connectionStatusBox = new HBox(20, onlineBox, offlineBox);
+		connectionStatusBox.setAlignment(Pos.CENTER);
 
-		joinGameButton = new Button("Join Button");
-		joinGameButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		joinGameButton = new Button("Join Game");
+		joinGameButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px; -fx-border-radius: 20px; -fx-background-color: #43d64e; -fx-text-fill: white;");
 
 		// When clicked, a new message is sent to the server
 		// where the player is put into the waiting queue
@@ -444,12 +473,20 @@ public class GuiClient extends Application{
 		});
 
 		logoutButton = new Button("Logout");
-		logoutButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		logoutButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px; -fx-border-radius: 20px; -fx-background-color: #ec5955; -fx-text-fill: white;");
+		logoutButton.setOnAction(e -> {
+			Message logoutMsg = new Message(MessageType.LOGOUT, username);
+			clientConnection.send(logoutMsg);
+			statusLabel.setText("Please login to continue");
+			switchToScene("login");
+		});
 
 		HBox buttonBox = new HBox(10, joinGameButton, logoutButton);
 
-		VBox mainMenuBox = new VBox(10);
-		mainMenuBox.setPadding(new Insets(20));
+		VBox mainMenuBox = new VBox(20);
+		mainMenuBox.setPadding(new Insets(30));
+		mainMenuBox.setAlignment(Pos.CENTER);
+		mainMenuBox.setStyle("-fx-background-color: #a6a6a6;");
 		mainMenuBox.getChildren().addAll(
 				mainMenuLabel,
 				connectionStatusBox,
@@ -461,12 +498,23 @@ public class GuiClient extends Application{
 
 	private Scene createWaitingScene() {
 		waitingListView = new ListView<>();
-		waitingListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		waitingListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 24px; -fx-font-weight: bold;");
+
+		// main menu button
+		Button mainMenuButton = new Button("Main Menu");
+		mainMenuButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px; -fx-background-radius: 20px; -fx-background-color: #f44336; -fx-text-fill: white;");
+		mainMenuButton.setOnAction(e -> {
+			Message leaveMsg = new Message(MessageType.LEAVE_QUEUE, username);
+			clientConnection.send(leaveMsg);
+			switchToScene("mainMenu");
+		});
 
 		VBox mainMenuBox = new VBox(10);
-		mainMenuBox.setPadding(new Insets(20));
+		mainMenuBox.setPadding(new Insets(30));
+		mainMenuBox.setAlignment(Pos.CENTER);
+		mainMenuBox.setStyle("-fx-background-color: #f0f0f0; -fx-background-radius: 20px;");
 		mainMenuBox.getChildren().addAll(
-			waitingListView
+			waitingListView, mainMenuButton
 		);
 
 		return new Scene(mainMenuBox, 500, 500);
@@ -474,7 +522,12 @@ public class GuiClient extends Application{
 
 	private Scene createGameScene() {
 		gameBoardLabel = new Label("Game against " + opponentName);
-		gameBoardLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		gameBoardLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 20px; -fx-font-weight: bold;");
+		gameBoardLabel.setAlignment(Pos.CENTER);
+
+		instructionLabel = new Label("Click a circle button above a column to drop your token.");
+		instructionLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 15px; -fx-font-weight: bold;");
+		instructionLabel.setAlignment(Pos.CENTER);
 
 		gameBoardGrid = new GridPane();
 		dropButtonGrid = new GridPane();
@@ -482,7 +535,7 @@ public class GuiClient extends Application{
 		//create token drop buttons and save to columnButtons[] array
 		for (int col = 0; col < COLS; col++) {
 			// visuals
-			Button dropButton = new Button("↓");
+			dropButton = new Button("↓");
 			Circle circle = new Circle(17);
 			dropButton.setShape(circle);
 			dropButton.setMinSize(34, 34);
@@ -514,14 +567,13 @@ public class GuiClient extends Application{
 			}
 		}
 
-		// Chat box
-//		Label messageBoxLabel;
-//		ListView<String> messageBoxListView;
-//		VBox messageBox;
+		dropButtonGrid.setAlignment(Pos.CENTER);
+		gameBoardGrid.setAlignment(Pos.CENTER);
+
 		messageBoxLabel = new Label("Chat Box");
-		messageBoxLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		messageBoxLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 18px; -fx-font-weight: bold;");
 		messageListView = new ListView<>();
-		messageListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		messageListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px; -fx-background-color: #fafafa;");
 
 		inputField = new TextField();
 		inputField.setPromptText("Type a message...");
@@ -529,7 +581,7 @@ public class GuiClient extends Application{
 		inputField.setPrefWidth(300);
 
 		sendButton = new Button("Send");
-		sendButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		sendButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px; -fx-background-color: #0288d1; -fx-text-fill: white; -fx-font-weight: bold;");
 
 		// Sends a message when clicking send button
 		sendButton.setOnAction(e -> {
@@ -544,17 +596,77 @@ public class GuiClient extends Application{
 		// Sends a message when pressing ENTER key
 		inputField.setOnAction(e -> sendButton.fire());
 
+		// quit game button
+		Button quitGameButton = new Button("Quit Game");
+		quitGameButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px; -fx-background-color: #e53935; -fx-text-fill: white; -fx-font-weight: bold;");
+		quitGameButton.setOnAction(e -> {
+			Message quitMsg = new Message(MessageType.QUIT_GAME, username);
+			clientConnection.send(quitMsg);
+			switchToScene("mainMenu");
+			resetGameBoard();
+		});
+
 		HBox inputArea = new HBox(10, inputField, sendButton);
-		messageBox = new VBox(10, messageBoxLabel, messageListView, inputArea);
+		inputArea.setPadding(new Insets(10));
+
+		messageBox = new VBox(10, messageBoxLabel, messageListView, inputArea, quitGameButton);
+		messageBox.setPadding(new Insets(20));
+		messageBox.setStyle("-fx-background-color: #f5f5f5; -fx-background-radius: 20px;");
 
 		gameStateListView = new ListView<>();
-		gameStateListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+		gameStateListView.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px; -fx-background-color: #ffffff;");
 
-		gameBox = new VBox(10, gameBoardLabel, dropButtonGrid, gameBoardGrid, gameStateListView);
+		gameBox = new VBox(20, gameBoardLabel, instructionLabel, dropButtonGrid, gameBoardGrid, gameStateListView);
 		gameBox.setPadding(new Insets(20));
+		gameBox.setAlignment(Pos.TOP_CENTER);
 
-		HBox gameDisplay = new HBox(10, gameBox, messageBox);
-		return new Scene(gameDisplay, 800, 700);
+		HBox gameDisplay = new HBox(30, gameBox, messageBox);
+		gameDisplay.setPadding(new Insets(20));
+		gameDisplay.setAlignment(Pos.CENTER);
+		gameDisplay.setStyle("-fx-background-color: linear-gradient(to bottom right, #eceff1, #cfd8dc);");
+
+		return new Scene(gameDisplay, 1000, 700);
+	}
+
+	private Scene showEndGameScene(String title, String message) {
+		Label gameOverLabel = new Label(title);
+		gameOverLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 36px; -fx-font-weight: bold;");
+		gameOverLabel.setAlignment(Pos.CENTER);
+
+		Label gameOverResultLabel = new Label(message);
+		gameOverResultLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 50px; -fx-text-fill: #555;");
+		gameOverResultLabel.setAlignment(Pos.CENTER);
+
+		Label messageLabel = new Label(message);
+		messageLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 16px;");
+		messageLabel.setTextFill(Color.BLACK);
+		messageLabel.setAlignment(Pos.CENTER);
+
+		Button rematchButton = new Button("Rematch");
+		rematchButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 20px; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 10;");
+		rematchButton.setOnAction(e -> {
+			messageLabel.setText("Waiting for opponent");
+			messageLabel.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 14px;");
+			rematchButton.setDisable(true);
+			Message rematchRequest = new Message(MessageType.REMATCH, username);
+			clientConnection.send(rematchRequest);
+		});
+
+		Button mainMenuButton = new Button("Main Menu");
+		mainMenuButton.setStyle("-fx-font-family: 'Arial'; -fx-font-size: 20px; -fx-background-color: #f44336; -fx-text-fill: white; -fx-background-radius: 10;");
+		mainMenuButton.setOnAction(e -> {
+			Message quitMsg = new Message(MessageType.QUIT_GAME, username);
+			clientConnection.send(quitMsg);
+			resetGameBoard();
+			switchToScene("mainMenu");
+		});
+
+		VBox layout = new VBox(10);
+		layout.setPadding(new Insets(20));
+		layout.getChildren().addAll(messageLabel, rematchButton, mainMenuButton);
+		layout.setStyle("-fx-background-color: linear-gradient(to bottom, #ffffff, #e0e0e0); -fx-alignment: center;");
+
+		return new Scene(layout, 500, 500);
 	}
 
 	private void sendTextMessage(String message) {
@@ -565,7 +677,6 @@ public class GuiClient extends Application{
 	// Called when game state changes, updates based on gameboard passed
 	// in message from server. Also updates whose turn it is.
 	private void updateGameBoardUI() {
-		// TODO: implement
 		// Add the correct color piece to the gameboard
 		for (int row = 0; row < ROWS; row++) {
 			for (int col = 0; col < COLS; col++) {
@@ -587,8 +698,24 @@ public class GuiClient extends Application{
 		}
 	}
 
+	// reset game board by changing all cells to 0 and updating UI
+	private void resetGameBoard() {
+		for (int row = 0; row < ROWS; row++) {
+			for (int col = 0; col < COLS; col++) {
+				gameBoard[row][col] = 0;
+			}
+		}
+
+		if (playerNumber != 1) {
+			gameStateListView.getItems().clear();
+			gameStateListView.getItems().add("Waiting for " + opponentName + " to move");
+		}
+
+		updateGameBoardUI();
+	}
+
 	private void makeMove(int column) {
-		gameStateListView.getItems().add("You dropped a token in column " + column+1);
+		gameStateListView.getItems().add("You dropped a token in column " + column);
 		currentGameState = GameState.OPPONENT_TURN;
 		setColumnButtonsEnabled(false);
 		Message moveMessage = new Message(MessageType.GAME_ACTION, username, "move", column);
