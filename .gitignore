@@ -13,3 +13,7 @@ target/
 # Ignore OS generated files (like thumbs.db on Windows)
 .DS_Store
 Thumbs.db
+__MACOSX/
+
+# Local environment files
+.env
